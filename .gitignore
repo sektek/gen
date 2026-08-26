@@ -302,3 +302,5 @@ dist
 .pnp.*
 
 ## END JavaScript
+
+.worktrees/
