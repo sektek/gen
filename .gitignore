@@ -302,3 +302,6 @@ dist
 .pnp.*
 
 ## END JavaScript
+
+# Local working trees for parallel branch work (not tracked)
+.worktrees/
