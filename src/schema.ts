@@ -4,6 +4,14 @@ export type OptionSpec = {
   key: string;
   flag: string;
   prompt: string;
+  // Shown by `--help` instead of `prompt`, when set. `prompt` is written as
+  // a natural Yes/No question for the wizard (see wizard-steps.ts's
+  // choicesFor()) — for a negated boolean flag (--no-<x>), that same
+  // wording reads backwards next to its flag in --help output (e.g.
+  // "--no-git-init  Initialize a local git repo...?" looks like the flag
+  // enables the thing it actually disables). Falls back to `prompt` when
+  // omitted.
+  helpText?: string;
   kind: OptionKind;
   choices?: readonly string[];
   default?: unknown;
@@ -88,6 +96,7 @@ export const GIT_OPTIONS: OptionSpec[] = [
     key: 'gitInit',
     flag: '--no-git-init',
     prompt: 'Initialize a local git repo with an initial commit?',
+    helpText: 'Skip initializing a local git repo with an initial commit',
     kind: 'boolean',
     default: true,
   },
@@ -129,6 +138,7 @@ export const GITHUB_OPTIONS: OptionSpec[] = [
     key: 'push',
     flag: '--no-push',
     prompt: 'Push after committing?',
+    helpText: 'Skip pushing after committing',
     kind: 'boolean',
     default: true,
   },

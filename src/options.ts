@@ -16,7 +16,7 @@ import { type OptionSpec, schemaFor } from './schema.js';
  */
 export function addSchemaOptions(command: Command, namespace: string): Command {
   for (const spec of schemaFor(namespace)) {
-    command.option(spec.flag, spec.prompt);
+    command.option(spec.flag, spec.helpText ?? spec.prompt);
   }
   return command;
 }
