@@ -77,19 +77,79 @@ export const JS_OPTIONS: OptionSpec[] = [
   },
 ];
 
+// Options for the (not-yet-built) `git` sub-generator. Reachable from both
+// @sektek/base:app and (transitively) @sektek/js:app, so merged into both
+// schemaFor() branches below.
+export const GIT_OPTIONS: OptionSpec[] = [
+  {
+    // --no-git-init, not --git-init: this one defaults true and needs to
+    // stay overridable to false (commander's convention, matching
+    // JS_OPTIONS's existing --no-private).
+    key: 'gitInit',
+    flag: '--no-git-init',
+    prompt: 'Initialize a local git repo with an initial commit?',
+    kind: 'boolean',
+    default: true,
+  },
+];
+
+// Options for the (not-yet-built) `github` sub-generator. Reachable from
+// both @sektek/base:app and (transitively) @sektek/js:app, so merged into
+// both schemaFor() branches below.
+export const GITHUB_OPTIONS: OptionSpec[] = [
+  {
+    key: 'createRepo',
+    flag: '--create-repo',
+    prompt: 'Create a GitHub repo and push?',
+    kind: 'boolean',
+    default: false,
+  },
+  {
+    key: 'repoVisibility',
+    flag: '--repo-visibility <value>',
+    prompt: 'Repo visibility',
+    kind: 'select',
+    choices: ['public', 'private'],
+    default: 'private',
+  },
+  {
+    key: 'repoOwner',
+    flag: '--repo-owner <value>',
+    prompt: 'GitHub org (blank = your account)',
+    kind: 'text',
+  },
+  {
+    key: 'githubToken',
+    flag: '--github-token <value>',
+    prompt: 'GitHub token (blank = env/gh CLI)',
+    kind: 'text',
+  },
+  {
+    // --no-push, not --push: same convention as --no-git-init/--no-private.
+    key: 'push',
+    flag: '--no-push',
+    prompt: 'Push after committing?',
+    kind: 'boolean',
+    default: true,
+  },
+];
+
 /**
  * Returns the option schema for a generator namespace, scoped per package
  * family (`@sektek/base:*` vs `@sektek/js:*`) rather than per individual
  * sub-generator, since composeWith passes the whole options object through
- * unchanged regardless of which one runs.
+ * unchanged regardless of which one runs. GIT_OPTIONS and GITHUB_OPTIONS are
+ * merged into both branches, since the `git`/`github` sub-generators they
+ * back are reachable from both `@sektek/base:app` and (transitively)
+ * `@sektek/js:app`.
  *
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @returns The option specs relevant to that namespace's package family.
  */
 export function schemaFor(namespace: string): OptionSpec[] {
   return namespace.startsWith('@sektek/js:')
-    ? [...CORE_OPTIONS, ...JS_OPTIONS]
-    : CORE_OPTIONS;
+    ? [...CORE_OPTIONS, ...JS_OPTIONS, ...GIT_OPTIONS, ...GITHUB_OPTIONS]
+    : [...CORE_OPTIONS, ...GIT_OPTIONS, ...GITHUB_OPTIONS];
 }
 
 /**
