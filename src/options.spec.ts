@@ -18,6 +18,12 @@ describe('resolve', function () {
       namespace: 'sektek',
       profile: 'default',
       description: undefined,
+      gitInit: true,
+      createRepo: false,
+      repoVisibility: 'private',
+      repoOwner: undefined,
+      githubToken: undefined,
+      push: true,
     });
   });
 
