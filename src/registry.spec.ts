@@ -9,6 +9,8 @@ import { REGISTRY, registerAll } from './registry.js';
 const EXPECTED_NAMESPACES = [
   '@sektek/base:app',
   '@sektek/base:editorconfig',
+  '@sektek/base:git',
+  '@sektek/base:github',
   '@sektek/base:gitconfig',
   '@sektek/base:readme',
   '@sektek/base:devcontainer',
