@@ -54,6 +54,14 @@ export const JS_OPTIONS: OptionSpec[] = [
     default: 'javascript',
   },
   {
+    key: 'testFramework',
+    flag: '--test-framework <value>',
+    prompt: 'Test framework',
+    kind: 'select',
+    choices: ['mocha', 'vitest', 'none'],
+    default: 'mocha',
+  },
+  {
     key: 'packageScope',
     flag: '--package-scope <value>',
     prompt: 'npm scope',
