@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.0](https://github.com/sektek/gen/compare/v0.2.1...v0.3.0) (2026-09-04)
+
+### Features
+
+* add --test-framework CLI option ([#4](https://github.com/sektek/gen/issues/4)) ([f871f62](https://github.com/sektek/gen/commit/f871f62d3de7e42cde27526498a78487e6e12813))
+
 ## [0.2.1](https://github.com/sektek/gen/compare/v0.2.0...v0.2.1) (2026-09-03)
 
 ### Bug Fixes
