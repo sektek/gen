@@ -1,8 +1,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { type GithubClient, defaultGithubClient } from '@sektek/generator-base';
-import { randomProjectName } from '@sektek/generator';
+import type { GithubClient } from '@sektek/generator-base';
 
 export type ResolveGeneratedDestinationOptions = {
   cwd: string;
@@ -21,6 +20,13 @@ export type ResolveGeneratedDestinationOptions = {
  * existing GitHub repo for the resolved owner. Retries with a fresh name
  * on collision, up to `maxAttempts` (default 20).
  *
+ * Both `@sektek/generator`'s word lists and `@sektek/generator-base`'s
+ * (octokit-backed) GithubClient are imported dynamically, only once
+ * actually needed (a supplied `generateName`/`githubClient` skips the
+ * corresponding import entirely) — this function already only runs when
+ * `--dest` was omitted, and the GitHub check only when `--create-repo`
+ * was given, so a plain `--dest ./foo` run touches neither.
+ *
  * @param opts - Where to generate under, and how to check GitHub collisions.
  * @returns The chosen absolute destination path (not yet created on disk).
  */
@@ -28,9 +34,12 @@ export async function resolveGeneratedDestination(
   opts: ResolveGeneratedDestinationOptions,
 ): Promise<string> {
   const maxAttempts = opts.maxAttempts ?? 20;
-  const generateName = opts.generateName ?? randomProjectName;
+  const generateName =
+    opts.generateName ??
+    (await import('@sektek/generator/project-name')).randomProjectName;
   const client = opts.createRepo
-    ? (opts.githubClient ?? defaultGithubClient())
+    ? (opts.githubClient ??
+      (await import('@sektek/generator-base')).defaultGithubClient())
     : undefined;
   const auth = client
     ? { token: await client.resolveToken(opts.githubToken) }
