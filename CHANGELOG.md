@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1](https://github.com/sektek/gen/compare/v0.3.0...v0.3.1) (2026-09-05)
+
+### Bug Fixes
+
+* **deps:** bump @sektek/generator-js to ^0.5.0 ([#5](https://github.com/sektek/gen/issues/5)) ([86effc4](https://github.com/sektek/gen/commit/86effc4197b26b01a2e989baa5e1a0e9c2cf309c)), closes [#3](https://github.com/sektek/gen/issues/3)
+
 ## [0.3.0](https://github.com/sektek/gen/compare/v0.2.1...v0.3.0) (2026-09-04)
 
 ### Features
