@@ -3,7 +3,12 @@ import { useEffect, useState } from 'react';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 
-import { choicesFor, defaultIndexFor, pendingSpecs } from './wizard-steps.js';
+import {
+  choicesFor,
+  defaultIndexFor,
+  licenseImpliedAnswers,
+  pendingSpecs,
+} from './wizard-steps.js';
 import type { OptionSpec } from './schema.js';
 
 type CompletedStep = {
@@ -33,14 +38,20 @@ export type WizardProps = {
  * scrollback once every step is answered.
  */
 export function Wizard({ schema, seed, onComplete }: WizardProps) {
-  const steps = pendingSpecs(schema, seed);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, unknown>>(seed);
+  const [answers, setAnswers] = useState<Record<string, unknown>>(() => ({
+    ...seed,
+    ...licenseImpliedAnswers(seed.license, schema),
+  }));
   const [textValue, setTextValue] = useState('');
   const [completed, setCompleted] = useState<CompletedStep[]>([]);
 
-  const done = stepIndex >= steps.length;
-  const spec = done ? undefined : steps[stepIndex];
+  // Recomputed from live `answers` (not the static `seed` prop) every
+  // render, since `steps` can shrink mid-flow once `license` resolves to
+  // 'UNLICENSED' — "the next step" is always "the first not-yet-answered
+  // spec", not a counter into a list whose length may no longer match.
+  const steps = pendingSpecs(schema, answers);
+  const spec = steps[0];
+  const done = spec === undefined;
 
   // answers/onComplete are in the deps to avoid a stale closure; the
   // `if (done)` guard makes every earlier re-invocation a no-op.
@@ -54,13 +65,14 @@ export function Wizard({ schema, seed, onComplete }: WizardProps) {
     if (!spec) {
       return;
     }
-    setAnswers(prev => ({ ...prev, [spec.key]: value }));
+    const implied =
+      spec.key === 'license' ? licenseImpliedAnswers(value, schema) : {};
+    setAnswers(prev => ({ ...prev, [spec.key]: value, ...implied }));
     setCompleted(prev => [
       ...prev,
       { key: spec.key, text: `${spec.prompt}: ${displayValue(spec, value)}` },
     ]);
     setTextValue('');
-    setStepIndex(prev => prev + 1);
   };
 
   // Same root shape (a <Box> wrapping <Static>) whether or not a step is
