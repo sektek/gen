@@ -22,6 +22,7 @@ const EXPECTED_NAMESPACES = [
   '@sektek/js:eslint',
   '@sektek/js:prettier',
   '@sektek/js:mocha',
+  '@sektek/js:vitest',
   '@sektek/js:workspace',
 ];
 

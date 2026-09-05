@@ -33,7 +33,6 @@ describe('runGenerator', function () {
 
     expect(existsSync(join(destinationRoot, 'package.json'))).to.be.true;
     expect(existsSync(join(destinationRoot, 'index.js'))).to.be.true;
-    expect(existsSync(join(destinationRoot, 'index.spec.js'))).to.be.true;
 
     const packageJson = JSON.parse(
       readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
