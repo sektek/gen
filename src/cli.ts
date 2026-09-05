@@ -8,6 +8,7 @@ import { addSchemaOptions, resolve } from './options.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
 import { resolveConfigDefaults } from './config.js';
+import { resolveGeneratedDestination } from './project-name.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
 
@@ -297,8 +298,18 @@ export async function main(argv: string[]): Promise<void> {
     console.warn(chalk.yellow(warning));
   }
 
+  const destGiven = program.getOptionValueSource('dest') === 'cli';
+  const destinationRoot = destGiven
+    ? dest
+    : await resolveGeneratedDestination({
+        cwd: dest, // commander's declared default for --dest is already process.cwd()
+        createRepo: options.createRepo as boolean | undefined,
+        repoOwner: options.repoOwner as string | undefined,
+        githubToken: options.githubToken as string | undefined,
+      });
+
   await runGenerator(namespace, options, {
-    destinationRoot: dest,
+    destinationRoot,
     force: Boolean(force),
   });
 }

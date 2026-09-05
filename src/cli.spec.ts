@@ -1,4 +1,10 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -162,6 +168,33 @@ describe('cli', function () {
         readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
       );
       expect(packageJson.license).to.equal('Apache-2.0');
+    });
+  });
+
+  // Regression coverage for auto-generating a destination when --dest is
+  // omitted (SEK-generated-destination): createRepo isn't set here, so this
+  // makes no network calls.
+  describe('main (auto-generated destination when --dest is omitted)', function () {
+    let generatedCwd: string;
+    let originalCwd: string;
+
+    beforeEach(function () {
+      generatedCwd = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-generated-'));
+      originalCwd = process.cwd();
+      process.chdir(generatedCwd);
+    });
+
+    afterEach(function () {
+      process.chdir(originalCwd);
+      rmSync(generatedCwd, { recursive: true, force: true });
+    });
+
+    it('scaffolds into an auto-generated adjective-noun directory under cwd', async function () {
+      await main(['node', 'gen', 'base:editorconfig', '--yes']);
+
+      const entries = readdirSync(generatedCwd);
+      expect(entries).to.have.lengthOf(1);
+      expect(entries[0]).to.match(/^[a-z]+-[a-z]+$/);
     });
   });
 });
