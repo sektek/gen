@@ -33,10 +33,6 @@ describe('runGenerator', function () {
 
     expect(existsSync(join(destinationRoot, 'package.json'))).to.be.true;
     expect(existsSync(join(destinationRoot, 'index.js'))).to.be.true;
-    // Not index.spec.js: as of @sektek/generator-js 0.5.0, base-package no
-    // longer writes an entrypoint spec on its own - that's mocha's/vitest's
-    // job now, and this test runs base-package standalone with neither
-    // composed.
 
     const packageJson = JSON.parse(
       readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
