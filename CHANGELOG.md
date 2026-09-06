@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0](https://github.com/sektek/gen/compare/v0.4.0...v0.5.0) (2026-09-06)
+
+### Features
+
+* auto-generate an adjective-noun destination when --dest is omitted ([#7](https://github.com/sektek/gen/issues/7)) ([a02b7a0](https://github.com/sektek/gen/commit/a02b7a0d237969e5d220972d486f1b434d316c99))
+
 ## [0.4.0](https://github.com/sektek/gen/compare/v0.3.1...v0.4.0) (2026-09-06)
 
 ### Features
