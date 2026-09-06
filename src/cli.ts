@@ -8,6 +8,7 @@ import { addSchemaOptions, resolve } from './options.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
 import { resolveConfigDefaults } from './config.js';
+import { resolveGeneratedDestination } from './project-name.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
 
@@ -297,8 +298,26 @@ export async function main(argv: string[]): Promise<void> {
     console.warn(chalk.yellow(warning));
   }
 
+  const destGiven = program.getOptionValueSource('dest') === 'cli';
+  const destinationRoot = destGiven
+    ? dest
+    : await resolveGeneratedDestination({
+        cwd: dest, // commander's declared default for --dest is already process.cwd()
+        // `options` is a Record<string, unknown> — a config file can put
+        // anything under these keys (e.g. `"createRepo": "false"`, a
+        // truthy *string*), so narrow at runtime rather than `as`-casting,
+        // which would just carry a wrongly-typed value straight through.
+        createRepo: options.createRepo === true,
+        repoOwner:
+          typeof options.repoOwner === 'string' ? options.repoOwner : undefined,
+        githubToken:
+          typeof options.githubToken === 'string'
+            ? options.githubToken
+            : undefined,
+      });
+
   await runGenerator(namespace, options, {
-    destinationRoot: dest,
+    destinationRoot,
     force: Boolean(force),
   });
 }
