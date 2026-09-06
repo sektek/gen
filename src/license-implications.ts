@@ -26,14 +26,14 @@ export function applyLicenseImplications(
 
   if ('private' in next && next.private !== true) {
     warnings.push(
-      '--license UNLICENSED requires a private package; overriding --no-private to private.',
+      `license "UNLICENSED" requires a private package; overriding private (was ${String(next.private)}) to true.`,
     );
     next.private = true;
   }
 
   if ('repoVisibility' in next && next.repoVisibility !== 'private') {
     warnings.push(
-      `--license UNLICENSED requires a private repo; overriding --repo-visibility ${String(next.repoVisibility)} to private.`,
+      `license "UNLICENSED" requires a private repo; overriding repoVisibility (was ${String(next.repoVisibility)}) to "private".`,
     );
     next.repoVisibility = 'private';
   }

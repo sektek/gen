@@ -6,7 +6,8 @@ import TextInput from 'ink-text-input';
 import {
   choicesFor,
   defaultIndexFor,
-  licenseImpliedAnswers,
+  initialAnswers,
+  mergeAnswer,
   pendingSpecs,
 } from './wizard-steps.js';
 import type { OptionSpec } from './schema.js';
@@ -38,10 +39,9 @@ export type WizardProps = {
  * scrollback once every step is answered.
  */
 export function Wizard({ schema, seed, onComplete }: WizardProps) {
-  const [answers, setAnswers] = useState<Record<string, unknown>>(() => ({
-    ...seed,
-    ...licenseImpliedAnswers(seed.license, schema),
-  }));
+  const [answers, setAnswers] = useState<Record<string, unknown>>(() =>
+    initialAnswers(seed, schema),
+  );
   const [textValue, setTextValue] = useState('');
   const [completed, setCompleted] = useState<CompletedStep[]>([]);
 
@@ -65,9 +65,7 @@ export function Wizard({ schema, seed, onComplete }: WizardProps) {
     if (!spec) {
       return;
     }
-    const implied =
-      spec.key === 'license' ? licenseImpliedAnswers(value, schema) : {};
-    setAnswers(prev => ({ ...prev, [spec.key]: value, ...implied }));
+    setAnswers(prev => mergeAnswer(prev, spec.key, value, schema));
     setCompleted(prev => [
       ...prev,
       { key: spec.key, text: `${spec.prompt}: ${displayValue(spec, value)}` },

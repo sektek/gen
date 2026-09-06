@@ -3,7 +3,9 @@ import { expect } from 'chai';
 import {
   choicesFor,
   defaultIndexFor,
+  initialAnswers,
   licenseImpliedAnswers,
+  mergeAnswer,
   pendingSpecs,
 } from './wizard-steps.js';
 import type { OptionSpec } from './schema.js';
@@ -73,10 +75,17 @@ describe('wizard-steps', function () {
       ).to.deep.equal([selectSpec]);
     });
 
-    it('does not skip a spec seeded with undefined', function () {
+    it('skips a spec seeded with an explicit undefined value', function () {
+      // Not "still pending" — a value of undefined means this key was
+      // deliberately answered (e.g. an optional text field left blank),
+      // not that it's absent. See pendingSpecs()'s own doc comment.
       expect(
         pendingSpecs([textSpec], { description: undefined }),
-      ).to.deep.equal([textSpec]);
+      ).to.deep.equal([]);
+    });
+
+    it('does not skip a spec whose key is entirely absent from seed', function () {
+      expect(pendingSpecs([textSpec], {})).to.deep.equal([textSpec]);
     });
   });
 
@@ -187,6 +196,102 @@ describe('wizard-steps', function () {
       expect(licenseImpliedAnswers('UNLICENSED', [licenseSpec])).to.deep.equal(
         {},
       );
+    });
+  });
+
+  describe('initialAnswers', function () {
+    const jsSchema: OptionSpec[] = [
+      {
+        key: 'license',
+        flag: '--license <value>',
+        prompt: 'License',
+        kind: 'text',
+        default: 'UNLICENSED',
+      },
+      {
+        key: 'private',
+        flag: '--no-private',
+        prompt: 'Private package?',
+        kind: 'boolean',
+        default: true,
+      },
+      {
+        key: 'repoVisibility',
+        flag: '--repo-visibility <value>',
+        prompt: 'Repo visibility',
+        kind: 'select',
+        choices: ['public', 'private'],
+        default: 'private',
+      },
+    ];
+
+    it('fills in nothing extra when license is not seeded as UNLICENSED', function () {
+      expect(initialAnswers({}, jsSchema)).to.deep.equal({});
+    });
+
+    it('fills in the implied answers when license is seeded as UNLICENSED', function () {
+      expect(initialAnswers({ license: 'UNLICENSED' }, jsSchema)).to.deep.equal(
+        {
+          license: 'UNLICENSED',
+          private: true,
+          repoVisibility: 'private',
+        },
+      );
+    });
+
+    it('lets an explicit conflicting seed value win over the implied one', function () {
+      // Regression: seed must survive so applyLicenseImplications() can
+      // still see (and warn about) the conflict downstream, instead of it
+      // looking like `private` was already true all along.
+      expect(
+        initialAnswers({ license: 'UNLICENSED', private: false }, jsSchema),
+      ).to.deep.equal({
+        license: 'UNLICENSED',
+        private: false,
+        repoVisibility: 'private',
+      });
+    });
+  });
+
+  describe('mergeAnswer', function () {
+    const jsSchema: OptionSpec[] = [
+      {
+        key: 'license',
+        flag: '--license <value>',
+        prompt: 'License',
+        kind: 'text',
+        default: 'UNLICENSED',
+      },
+      {
+        key: 'private',
+        flag: '--no-private',
+        prompt: 'Private package?',
+        kind: 'boolean',
+        default: true,
+      },
+    ];
+
+    it('records a non-license answer as-is', function () {
+      expect(mergeAnswer({}, 'language', 'typescript', jsSchema)).to.deep.equal(
+        { language: 'typescript' },
+      );
+    });
+
+    it('fills in implied answers when license is answered as UNLICENSED', function () {
+      expect(mergeAnswer({}, 'license', 'UNLICENSED', jsSchema)).to.deep.equal({
+        license: 'UNLICENSED',
+        private: true,
+      });
+    });
+
+    it('lets an already-known answer win over what license implies', function () {
+      // Regression: if `private` was already seeded/answered before the
+      // wizard reaches `license`, answering license as UNLICENSED must not
+      // silently overwrite it — the conflict needs to survive for
+      // applyLicenseImplications() to report.
+      expect(
+        mergeAnswer({ private: false }, 'license', 'UNLICENSED', jsSchema),
+      ).to.deep.equal({ license: 'UNLICENSED', private: false });
     });
   });
 });

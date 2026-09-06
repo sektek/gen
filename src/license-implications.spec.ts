@@ -12,7 +12,7 @@ describe('applyLicenseImplications', function () {
     expect(result.warnings).to.deep.equal([]);
   });
 
-  it('overrides an explicit --no-private to true, with a warning', function () {
+  it('overrides an explicit private: false to true, with a warning', function () {
     const result = applyLicenseImplications({
       license: 'UNLICENSED',
       private: false,
@@ -20,7 +20,11 @@ describe('applyLicenseImplications', function () {
 
     expect(result.resolved.private).to.equal(true);
     expect(result.warnings).to.have.lengthOf(1);
-    expect(result.warnings[0]).to.match(/--no-private/);
+    // Phrased in terms of the option key/value, not a CLI flag name — the
+    // conflicting value can just as easily come from a config default or
+    // a wizard answer, not necessarily something the user typed as a flag.
+    expect(result.warnings[0]).to.match(/private \(was false\)/);
+    expect(result.warnings[0]).to.not.match(/--no-private/);
   });
 
   it('overrides an explicit public repoVisibility to private, with a warning', function () {
@@ -31,7 +35,8 @@ describe('applyLicenseImplications', function () {
 
     expect(result.resolved.repoVisibility).to.equal('private');
     expect(result.warnings).to.have.lengthOf(1);
-    expect(result.warnings[0]).to.match(/--repo-visibility/);
+    expect(result.warnings[0]).to.match(/repoVisibility \(was public\)/);
+    expect(result.warnings[0]).to.not.match(/--repo-visibility/);
   });
 
   it('overrides both conflicting values at once, with two warnings', function () {
