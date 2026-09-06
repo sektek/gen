@@ -6,6 +6,7 @@ import chalk from 'chalk';
 
 import { addSchemaOptions, resolve } from './options.js';
 import { REGISTRY } from './registry.js';
+import { applyLicenseImplications } from './license-implications.js';
 import { resolveConfigDefaults } from './config.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
@@ -284,12 +285,17 @@ export async function main(argv: string[]): Promise<void> {
     homeDir: homedir(),
   });
 
-  const options = {
+  const merged = {
     ...(isInteractive(yes)
       ? await runWizard(namespace, flagsGiven, configDefaults)
       : resolve(namespace, flagsGiven, configDefaults)),
     skipInstall: !install,
   };
+
+  const { resolved: options, warnings } = applyLicenseImplications(merged);
+  for (const warning of warnings) {
+    console.warn(chalk.yellow(warning));
+  }
 
   await runGenerator(namespace, options, {
     destinationRoot: dest,

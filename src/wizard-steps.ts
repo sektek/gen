@@ -7,7 +7,12 @@ export type WizardChoice = {
 
 /**
  * The schema entries the wizard still needs to prompt for: any key
- * already supplied via `seed` is skipped.
+ * already present in `seed` is skipped, even if its value is `undefined`
+ * — an optional text spec with no default records `undefined` when
+ * deliberately left blank (see wizard.tsx's `advance()`), and this is
+ * also called against the wizard's own live in-progress answers, so
+ * treating "present but undefined" as still-pending would make that step
+ * reopen itself forever instead of actually completing.
  *
  * @param schema - The full option schema for a namespace.
  * @param seed - Option values already supplied.
@@ -17,7 +22,7 @@ export function pendingSpecs(
   schema: OptionSpec[],
   seed: Record<string, unknown>,
 ): OptionSpec[] {
-  return schema.filter(spec => seed[spec.key] === undefined);
+  return schema.filter(spec => !Object.hasOwn(seed, spec.key));
 }
 
 /**
@@ -46,6 +51,77 @@ export function choicesFor(spec: OptionSpec): WizardChoice[] {
   throw new Error(
     `choicesFor() only supports 'select'/'boolean' specs, got '${spec.kind}' for '${spec.key}'`,
   );
+}
+
+/**
+ * The extra answers implied by answering `license` as `'UNLICENSED'`:
+ * `private`/`repoVisibility` forced to their private value, for whichever
+ * of those two keys actually exist in `schema` (a base-only schema has
+ * neither `license` nor `private`, but does have `repoVisibility`).
+ *
+ * @param license - The value answered (or pre-seeded) for `license`.
+ * @param schema - The full option schema for the namespace being run.
+ * @returns The implied answers to merge in immediately, or `{}` if `license`
+ *   isn't `'UNLICENSED'`.
+ */
+export function licenseImpliedAnswers(
+  license: unknown,
+  schema: OptionSpec[],
+): Record<string, unknown> {
+  if (license !== 'UNLICENSED') {
+    return {};
+  }
+
+  const keys = new Set(schema.map(spec => spec.key));
+  const implied: Record<string, unknown> = {};
+  if (keys.has('private')) {
+    implied.private = true;
+  }
+  if (keys.has('repoVisibility')) {
+    implied.repoVisibility = 'private';
+  }
+  return implied;
+}
+
+/**
+ * The wizard's starting answers: `seed` plus whatever `licenseImpliedAnswers`
+ * derives from `seed.license`. `seed` always wins over an implied value —
+ * an explicit conflicting seed (e.g. `--no-private` alongside
+ * `--license UNLICENSED`) must survive here, or `applyLicenseImplications`
+ * downstream never sees the conflict to warn about.
+ *
+ * @param seed - Option values already supplied (e.g. via CLI flags).
+ * @param schema - The full option schema for the namespace being run.
+ * @returns The wizard's starting answers.
+ */
+export function initialAnswers(
+  seed: Record<string, unknown>,
+  schema: OptionSpec[],
+): Record<string, unknown> {
+  return { ...licenseImpliedAnswers(seed.license, schema), ...seed };
+}
+
+/**
+ * Folds a just-answered value into the wizard's running answers, plus (for
+ * `key === 'license'`) whatever it implies. Implied values only fill gaps
+ * — `prev` and the value just given always win — for the same reason
+ * `initialAnswers` favors `seed`: a real conflict must stay visible for
+ * `applyLicenseImplications` to report, not get silently absorbed.
+ *
+ * @param prev - The answers accumulated so far.
+ * @param key - The option key just answered.
+ * @param value - The value just answered for `key`.
+ * @param schema - The full option schema for the namespace being run.
+ * @returns The next answers state.
+ */
+export function mergeAnswer(
+  prev: Record<string, unknown>,
+  key: string,
+  value: unknown,
+  schema: OptionSpec[],
+): Record<string, unknown> {
+  const implied = key === 'license' ? licenseImpliedAnswers(value, schema) : {};
+  return { ...implied, ...prev, [key]: value };
 }
 
 /**
