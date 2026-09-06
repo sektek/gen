@@ -196,5 +196,25 @@ describe('cli', function () {
       expect(entries).to.have.lengthOf(1);
       expect(entries[0]).to.match(/^[a-z]+-[a-z]+$/);
     });
+
+    it('treats a non-boolean createRepo config value as false rather than truthy', async function () {
+      // Regression: options is a Record<string, unknown> by the time it
+      // reaches destination resolution — a config file's `"createRepo":
+      // "false"` is a non-empty *string*, which is truthy in JS. An `as
+      // boolean` cast would carry that straight through and incorrectly
+      // try to reach GitHub; this must resolve to a real `false` instead
+      // and complete without ever needing a token.
+      writeFileSync(
+        join(generatedCwd, 'gen.config.json'),
+        JSON.stringify({ createRepo: 'false', repoOwner: 42 }),
+      );
+
+      await main(['node', 'gen', 'base:editorconfig', '--yes']);
+
+      const generated = readdirSync(generatedCwd).find(name =>
+        /^[a-z]+-[a-z]+$/.test(name),
+      );
+      expect(generated).to.exist;
+    });
   });
 });

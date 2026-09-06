@@ -1,5 +1,5 @@
+import { isAbsolute, join, relative } from 'node:path';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { expect, use } from 'chai';
@@ -106,4 +106,34 @@ describe('resolveGeneratedDestination', function () {
       }),
     ).to.be.rejectedWith(/Could not find an available/);
   });
+
+  it('always returns an absolute path, even when cwd is given as relative', async function () {
+    const relativeCwd = relative(process.cwd(), cwd);
+
+    const dest = await resolveGeneratedDestination({
+      cwd: relativeCwd,
+      generateName: () => 'foo-bar',
+    });
+
+    expect(isAbsolute(dest)).to.be.true;
+    expect(dest).to.equal(join(cwd, 'foo-bar'));
+  });
+
+  for (const unsafeName of [
+    '',
+    '.',
+    '..',
+    '../escaped',
+    'nested/dir',
+    'a\\b',
+  ]) {
+    it(`rejects a generated name that isn't a safe path segment: '${unsafeName}'`, async function () {
+      await expect(
+        resolveGeneratedDestination({
+          cwd,
+          generateName: () => unsafeName,
+        }),
+      ).to.be.rejectedWith(/isn't a safe single path segment/);
+    });
+  }
 });

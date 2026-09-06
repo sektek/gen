@@ -303,9 +303,17 @@ export async function main(argv: string[]): Promise<void> {
     ? dest
     : await resolveGeneratedDestination({
         cwd: dest, // commander's declared default for --dest is already process.cwd()
-        createRepo: options.createRepo as boolean | undefined,
-        repoOwner: options.repoOwner as string | undefined,
-        githubToken: options.githubToken as string | undefined,
+        // `options` is a Record<string, unknown> — a config file can put
+        // anything under these keys (e.g. `"createRepo": "false"`, a
+        // truthy *string*), so narrow at runtime rather than `as`-casting,
+        // which would just carry a wrongly-typed value straight through.
+        createRepo: options.createRepo === true,
+        repoOwner:
+          typeof options.repoOwner === 'string' ? options.repoOwner : undefined,
+        githubToken:
+          typeof options.githubToken === 'string'
+            ? options.githubToken
+            : undefined,
       });
 
   await runGenerator(namespace, options, {

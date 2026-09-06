@@ -1,7 +1,34 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { resolve } from 'node:path';
 
 import type { GithubClient } from '@sektek/generator-base';
+
+// A generated name must be exactly one safe path segment — no separators,
+// no dot-segments — before it's ever joined onto `cwd`. Otherwise a bad
+// `generateName()` (a future randomProjectName() change, or a test's own
+// override) could produce something like '../elsewhere' or 'a/b' and
+// escape cwd or create unintended nested directories instead of just
+// failing loudly.
+const SAFE_PATH_SEGMENT = /^[^/\\]+$/;
+
+/**
+ * Throws unless `name` is safe to join onto a directory as a single path
+ * segment.
+ *
+ * @param name - The candidate name from `generateName()`.
+ */
+function assertSafePathSegment(name: string): void {
+  if (
+    name === '' ||
+    name === '.' ||
+    name === '..' ||
+    !SAFE_PATH_SEGMENT.test(name)
+  ) {
+    throw new Error(
+      `resolveGeneratedDestination(): generateName() returned ${JSON.stringify(name)}, which isn't a safe single path segment.`,
+    );
+  }
+}
 
 export type ResolveGeneratedDestinationOptions = {
   cwd: string;
@@ -47,7 +74,8 @@ export async function resolveGeneratedDestination(
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const name = generateName();
-    const dest = join(opts.cwd, name);
+    assertSafePathSegment(name);
+    const dest = resolve(opts.cwd, name);
 
     if (existsSync(dest)) {
       continue;
