@@ -24,6 +24,7 @@ describe('resolve', function () {
       repoOwner: undefined,
       githubToken: undefined,
       push: true,
+      configFile: undefined,
     });
   });
 

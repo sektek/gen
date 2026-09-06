@@ -3,11 +3,11 @@ import { homedir } from 'node:os';
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { resolveConfigDefaults } from '@sektek/generator';
 
 import { addSchemaOptions, resolve } from './options.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
-import { resolveConfigDefaults } from './config.js';
 import { resolveGeneratedDestination } from './project-name.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
@@ -286,17 +286,38 @@ export async function main(argv: string[]): Promise<void> {
     homeDir: homedir(),
   });
 
+  // Which keys this run's caller actually supplied, as opposed to a schema
+  // default silently filled in — resolve()/runWizard() both fold schema
+  // defaults + config-file defaults + given values into one flat object,
+  // losing that distinction by the time `answers` exists below. Threaded
+  // through to the generator run (see `options.explicitOptionKeys`) so a
+  // sub-generator that cares (the `config` sub-generator, populating
+  // gen.config.*) can still tell "explicit" from "defaulted" without
+  // needing this schema itself. The interactive wizard resolves every
+  // step itself (each answer is either seeded from a real flag or
+  // genuinely typed live), so every key it returns counts as explicit —
+  // only the non-interactive path is limited to `flagsGiven`.
+  const interactive = isInteractive(yes);
+  const answers = interactive
+    ? await runWizard(namespace, flagsGiven, configDefaults)
+    : resolve(namespace, flagsGiven, configDefaults);
+  const explicitOptionKeys = interactive
+    ? Object.keys(answers)
+    : Object.keys(flagsGiven);
+
   const merged = {
-    ...(isInteractive(yes)
-      ? await runWizard(namespace, flagsGiven, configDefaults)
-      : resolve(namespace, flagsGiven, configDefaults)),
+    ...answers,
     skipInstall: !install,
   };
 
-  const { resolved: options, warnings } = applyLicenseImplications(merged);
+  const { resolved: licensed, warnings } = applyLicenseImplications(merged);
   for (const warning of warnings) {
     console.warn(chalk.yellow(warning));
   }
+  // Annotated explicitly: TS's object-spread inference drops the index
+  // signature from `licensed` (a Record<string, unknown>) here, which would
+  // otherwise make every `options.<key>` access below a type error.
+  const options: Record<string, unknown> = { ...licensed, explicitOptionKeys };
 
   const destGiven = program.getOptionValueSource('dest') === 'cli';
   const destinationRoot = destGiven
