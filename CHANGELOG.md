@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.0](https://github.com/sektek/gen/compare/v0.3.1...v0.4.0) (2026-09-06)
+
+### Features
+
+* UNLICENSED license implies private package and repo ([#6](https://github.com/sektek/gen/issues/6)) ([927b58f](https://github.com/sektek/gen/commit/927b58f05840c0314af5a0c2ebf3c634d368c123))
+
 ## [0.3.1](https://github.com/sektek/gen/compare/v0.3.0...v0.3.1) (2026-09-05)
 
 ### Bug Fixes
