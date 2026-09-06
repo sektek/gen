@@ -1,8 +1,15 @@
-export type OptionKind = 'text' | 'boolean' | 'select';
+export type OptionKind = 'text' | 'boolean' | 'select' | 'list';
 
 export type OptionSpec = {
   key: string;
   flag: string;
+  // 'list' kind only: a second, repeatable flag contributing to the same
+  // `key` as `flag`'s comma-delimited value — e.g. `flag: '--dependencies
+  // <list>'` alongside `repeatFlag: '--dependency <pkg>'`. Both may be
+  // given in the same invocation; their values concatenate (comma-split
+  // `flag` value first, then each `repeatFlag` occurrence), never one
+  // replacing the other. See options.ts's `flagsGivenFor()`.
+  repeatFlag?: string;
   prompt: string;
   // Shown by `--help` instead of `prompt`, when set. `prompt` is written as
   // a natural Yes/No question for the wizard (see wizard-steps.ts's
@@ -90,6 +97,35 @@ export const JS_OPTIONS: OptionSpec[] = [
     prompt: 'Private package?',
     kind: 'boolean',
     default: true,
+  },
+];
+
+// Options for generator-js's `dependencies` sub-generator (SEK-87):
+// user-supplied npm packages to add as dependencies/devDependencies, each
+// entry a `package-name` or `package-name@version` string (scoped packages
+// supported, e.g. `@scope/name@1.2.3`). JS/TS-only, so merged only into
+// schemaFor()'s @sektek/js:* branch below, not CORE_OPTIONS. Deliberately
+// excluded from the interactive wizard (see wizard-steps.ts's
+// pendingSpecs()) — CLI flags or a config file only, per the ticket
+// ("the wizard should not provide the option to add when being run
+// interactively").
+export const DEPENDENCY_OPTIONS: OptionSpec[] = [
+  {
+    key: 'dependencies',
+    flag: '--dependencies <list>',
+    repeatFlag: '--dependency <pkg>',
+    prompt: 'Dependencies to add (package or package@version, comma-delimited)',
+    kind: 'list',
+    default: [],
+  },
+  {
+    key: 'devDependencies',
+    flag: '--dev-dependencies <list>',
+    repeatFlag: '--dev-dependency <pkg>',
+    prompt:
+      'Dev dependencies to add (package or package@version, comma-delimited)',
+    kind: 'list',
+    default: [],
   },
 ];
 
@@ -182,6 +218,7 @@ export function schemaFor(namespace: string): OptionSpec[] {
     ? [
         ...CORE_OPTIONS,
         ...JS_OPTIONS,
+        ...DEPENDENCY_OPTIONS,
         ...GIT_OPTIONS,
         ...GITHUB_OPTIONS,
         ...CONFIG_OPTIONS,

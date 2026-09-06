@@ -61,6 +61,15 @@ const selectSpecNoChoices: OptionSpec = {
   kind: 'select',
 };
 
+const listSpec: OptionSpec = {
+  key: 'dependencies',
+  flag: '--dependencies <list>',
+  repeatFlag: '--dependency <pkg>',
+  prompt: 'Dependencies to add',
+  kind: 'list',
+  default: [],
+};
+
 describe('wizard-steps', function () {
   describe('pendingSpecs', function () {
     it('returns every spec when seed is empty', function () {
@@ -87,6 +96,19 @@ describe('wizard-steps', function () {
 
     it('does not skip a spec whose key is entirely absent from seed', function () {
       expect(pendingSpecs([textSpec], {})).to.deep.equal([textSpec]);
+    });
+
+    it('never includes a kind: "list" spec, even when its key is absent from seed', function () {
+      // SEK-87: "the wizard should not provide the option to add when
+      // being run interactively" - dependencies/devDependencies must never
+      // be walked as a wizard step, regardless of seed state.
+      expect(pendingSpecs([textSpec, listSpec], {})).to.deep.equal([textSpec]);
+    });
+
+    it('never includes a kind: "list" spec even when it is already in seed', function () {
+      expect(
+        pendingSpecs([textSpec, listSpec], { dependencies: ['lodash'] }),
+      ).to.deep.equal([textSpec]);
     });
   });
 
