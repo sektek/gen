@@ -152,10 +152,9 @@ export const GITHUB_OPTIONS: OptionSpec[] = [
   },
 ];
 
-// Options for the `config` sub-generator (writes/updates gen.config.*).
-// Reachable from both @sektek/base:app and (transitively) @sektek/js:app,
-// so merged into both schemaFor() branches below, same as GIT_OPTIONS/
-// GITHUB_OPTIONS.
+// Options for the `config` sub-generator. Reachable from both
+// @sektek/base:app and (transitively) @sektek/js:app, so merged into both
+// schemaFor() branches below.
 export const CONFIG_OPTIONS: OptionSpec[] = [
   {
     key: 'configFile',
