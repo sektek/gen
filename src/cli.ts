@@ -8,6 +8,7 @@ import { resolveConfigDefaults } from '@sektek/generator';
 import { addSchemaOptions, resolve } from './options.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
+import { explicitOptionKeysFromWizard } from './wizard-steps.js';
 import { resolveGeneratedDestination } from './project-name.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
@@ -286,14 +287,20 @@ export async function main(argv: string[]): Promise<void> {
     homeDir: homedir(),
   });
 
-  // The wizard resolves every step live, so every key it returns is explicit.
   const interactive = isInteractive(yes);
-  const answers = interactive
-    ? await runWizard(namespace, flagsGiven, configDefaults)
-    : resolve(namespace, flagsGiven, configDefaults);
-  const explicitOptionKeys = interactive
-    ? Object.keys(answers)
-    : Object.keys(flagsGiven);
+  let answers: Record<string, unknown>;
+  let explicitOptionKeys: string[];
+  if (interactive) {
+    const wizardResult = await runWizard(namespace, flagsGiven, configDefaults);
+    answers = wizardResult.answers;
+    explicitOptionKeys = explicitOptionKeysFromWizard(
+      flagsGiven,
+      wizardResult.answeredKeys,
+    );
+  } else {
+    answers = resolve(namespace, flagsGiven, configDefaults);
+    explicitOptionKeys = Object.keys(flagsGiven);
+  }
 
   const merged = {
     ...answers,
