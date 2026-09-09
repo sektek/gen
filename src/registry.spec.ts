@@ -13,6 +13,7 @@ const EXPECTED_NAMESPACES = [
   '@sektek/base:git',
   '@sektek/base:github',
   '@sektek/base:gitconfig',
+  '@sektek/base:license',
   '@sektek/base:readme',
   '@sektek/base:devcontainer',
   '@sektek/base:workspace',
