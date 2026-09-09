@@ -152,22 +152,41 @@ export const GITHUB_OPTIONS: OptionSpec[] = [
   },
 ];
 
+// Options for the `config` sub-generator. Reachable from both
+// @sektek/base:app and (transitively) @sektek/js:app, so merged into both
+// schemaFor() branches below.
+export const CONFIG_OPTIONS: OptionSpec[] = [
+  {
+    key: 'configFile',
+    flag: '--config-file <path>',
+    prompt:
+      'gen.config.* path (blank = gen.config.yaml at the destination root)',
+    kind: 'text',
+  },
+];
+
 /**
  * Returns the option schema for a generator namespace, scoped per package
  * family (`@sektek/base:*` vs `@sektek/js:*`) rather than per individual
  * sub-generator, since composeWith passes the whole options object through
- * unchanged regardless of which one runs. GIT_OPTIONS and GITHUB_OPTIONS are
- * merged into both branches, since the `git`/`github` sub-generators they
- * back are reachable from both `@sektek/base:app` and (transitively)
- * `@sektek/js:app`.
+ * unchanged regardless of which one runs. GIT_OPTIONS, GITHUB_OPTIONS, and
+ * CONFIG_OPTIONS are merged into both branches, since the `git`/`github`/
+ * `config` sub-generators they back are reachable from both
+ * `@sektek/base:app` and (transitively) `@sektek/js:app`.
  *
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @returns The option specs relevant to that namespace's package family.
  */
 export function schemaFor(namespace: string): OptionSpec[] {
   return namespace.startsWith('@sektek/js:')
-    ? [...CORE_OPTIONS, ...JS_OPTIONS, ...GIT_OPTIONS, ...GITHUB_OPTIONS]
-    : [...CORE_OPTIONS, ...GIT_OPTIONS, ...GITHUB_OPTIONS];
+    ? [
+        ...CORE_OPTIONS,
+        ...JS_OPTIONS,
+        ...GIT_OPTIONS,
+        ...GITHUB_OPTIONS,
+        ...CONFIG_OPTIONS,
+      ]
+    : [...CORE_OPTIONS, ...GIT_OPTIONS, ...GITHUB_OPTIONS, ...CONFIG_OPTIONS];
 }
 
 /**

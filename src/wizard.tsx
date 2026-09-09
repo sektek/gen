@@ -20,7 +20,10 @@ type CompletedStep = {
 export type WizardProps = {
   schema: OptionSpec[];
   seed: Record<string, unknown>;
-  onComplete: (answers: Record<string, unknown>) => void;
+  onComplete: (
+    answers: Record<string, unknown>,
+    answeredKeys: string[],
+  ) => void;
 };
 
 // Not unit-tested: ink TTY rendering is impractical to exercise outside a
@@ -34,7 +37,9 @@ export type WizardProps = {
  * @param props - Schema to walk, pre-filled answers, and the completion callback.
  * @param props.schema - The full option schema for the namespace being run.
  * @param props.seed - Option values already supplied (e.g. via CLI flags).
- * @param props.onComplete - Called once with the fully-resolved answers.
+ * @param props.onComplete - Called once with the fully-resolved answers,
+ *   plus the keys actually prompted for and answered live (excluding any
+ *   from `seed` or merely implied by `licenseImpliedAnswers`).
  * @returns The scrolled-back answers plus the current prompt, or just the
  * scrollback once every step is answered.
  */
@@ -53,13 +58,16 @@ export function Wizard({ schema, seed, onComplete }: WizardProps) {
   const spec = steps[0];
   const done = spec === undefined;
 
-  // answers/onComplete are in the deps to avoid a stale closure; the
-  // `if (done)` guard makes every earlier re-invocation a no-op.
+  // answers/completed/onComplete are in the deps to avoid a stale closure;
+  // the `if (done)` guard makes every earlier re-invocation a no-op.
   useEffect(() => {
     if (done) {
-      onComplete(answers);
+      onComplete(
+        answers,
+        completed.map(step => step.key),
+      );
     }
-  }, [done, answers, onComplete]);
+  }, [done, answers, completed, onComplete]);
 
   const advance = (value: unknown) => {
     if (!spec) {

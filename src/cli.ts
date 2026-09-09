@@ -3,11 +3,12 @@ import { homedir } from 'node:os';
 
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { resolveConfigDefaults } from '@sektek/generator';
 
 import { addSchemaOptions, resolve } from './options.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
-import { resolveConfigDefaults } from './config.js';
+import { explicitOptionKeysFromWizard } from './wizard-steps.js';
 import { resolveGeneratedDestination } from './project-name.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
@@ -286,17 +287,32 @@ export async function main(argv: string[]): Promise<void> {
     homeDir: homedir(),
   });
 
+  const interactive = isInteractive(yes);
+  let answers: Record<string, unknown>;
+  let explicitOptionKeys: string[];
+  if (interactive) {
+    const wizardResult = await runWizard(namespace, flagsGiven, configDefaults);
+    answers = wizardResult.answers;
+    explicitOptionKeys = explicitOptionKeysFromWizard(
+      flagsGiven,
+      wizardResult.answeredKeys,
+    );
+  } else {
+    answers = resolve(namespace, flagsGiven, configDefaults);
+    explicitOptionKeys = Object.keys(flagsGiven);
+  }
+
   const merged = {
-    ...(isInteractive(yes)
-      ? await runWizard(namespace, flagsGiven, configDefaults)
-      : resolve(namespace, flagsGiven, configDefaults)),
+    ...answers,
     skipInstall: !install,
   };
 
-  const { resolved: options, warnings } = applyLicenseImplications(merged);
+  const { resolved: licensed, warnings } = applyLicenseImplications(merged);
   for (const warning of warnings) {
     console.warn(chalk.yellow(warning));
   }
+  // Annotated: object-spread would otherwise drop licensed's index signature.
+  const options: Record<string, unknown> = { ...licensed, explicitOptionKeys };
 
   const destGiven = program.getOptionValueSource('dest') === 'cli';
   const destinationRoot = destGiven
