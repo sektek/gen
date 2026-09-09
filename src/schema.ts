@@ -19,6 +19,11 @@ export type OptionSpec = {
   // enables the thing it actually disables). Falls back to `prompt` when
   // omitted.
   helpText?: string;
+  // 'list' kind only: --help text for `repeatFlag` specifically, when
+  // `helpText`/`prompt`'s wording (written for the comma-delimited `flag`)
+  // wouldn't fit a single-value-per-occurrence flag. Falls back to
+  // `helpText ?? prompt` when omitted.
+  repeatHelpText?: string;
   kind: OptionKind;
   choices?: readonly string[];
   default?: unknown;
@@ -115,6 +120,7 @@ export const DEPENDENCY_OPTIONS: OptionSpec[] = [
     flag: '--dependencies <list>',
     repeatFlag: '--dependency <pkg>',
     prompt: 'Dependencies to add (package or package@version, comma-delimited)',
+    repeatHelpText: 'Add a dependency (package or package@version); repeatable',
     kind: 'list',
     default: [],
   },
@@ -124,6 +130,8 @@ export const DEPENDENCY_OPTIONS: OptionSpec[] = [
     repeatFlag: '--dev-dependency <pkg>',
     prompt:
       'Dev dependencies to add (package or package@version, comma-delimited)',
+    repeatHelpText:
+      'Add a dev dependency (package or package@version); repeatable',
     kind: 'list',
     default: [],
   },

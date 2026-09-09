@@ -284,7 +284,10 @@ export async function main(argv: string[]): Promise<void> {
   let explicitOptionKeys: string[];
   if (interactive) {
     const wizardResult = await runWizard(namespace, flagsGiven, configDefaults);
-    answers = wizardResult.answers;
+    // The wizard never prompts for a 'list' spec, so its answers alone
+    // would leave dependencies/devDependencies undefined; resolve() layers
+    // in their schema/config default, same as the non-interactive path.
+    answers = resolve(namespace, wizardResult.answers, configDefaults);
     explicitOptionKeys = explicitOptionKeysFromWizard(
       flagsGiven,
       wizardResult.answeredKeys,

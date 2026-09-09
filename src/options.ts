@@ -29,7 +29,7 @@ export function addSchemaOptions(command: Command, namespace: string): Command {
       if (spec.repeatFlag) {
         command.option(
           spec.repeatFlag,
-          spec.helpText ?? spec.prompt,
+          spec.repeatHelpText ?? spec.helpText ?? spec.prompt,
           (value: string, previous: string[]) => [...previous, value],
           [],
         );

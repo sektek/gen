@@ -80,6 +80,8 @@ describe('schema', function () {
         repeatFlag: '--dependency <pkg>',
         prompt:
           'Dependencies to add (package or package@version, comma-delimited)',
+        repeatHelpText:
+          'Add a dependency (package or package@version); repeatable',
         kind: 'list',
         default: [],
       });
@@ -89,6 +91,8 @@ describe('schema', function () {
         repeatFlag: '--dev-dependency <pkg>',
         prompt:
           'Dev dependencies to add (package or package@version, comma-delimited)',
+        repeatHelpText:
+          'Add a dev dependency (package or package@version); repeatable',
         kind: 'list',
         default: [],
       });

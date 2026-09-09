@@ -133,6 +133,27 @@ describe('options', function () {
     });
   });
 
+  describe('addSchemaOptions', function () {
+    const helpFor = (flag: string) => {
+      const command = new Command();
+      addSchemaOptions(command, '@sektek/js:app');
+      return command.options.find(option => option.flags.includes(flag))
+        ?.description;
+    };
+
+    it("gives --dependency its own --help text, distinct from --dependencies'", function () {
+      expect(helpFor('--dependency <pkg>')).to.not.equal(
+        helpFor('--dependencies <list>'),
+      );
+    });
+
+    it("gives --dev-dependency its own --help text, distinct from --dev-dependencies'", function () {
+      expect(helpFor('--dev-dependency <pkg>')).to.not.equal(
+        helpFor('--dev-dependencies <list>'),
+      );
+    });
+  });
+
   describe('flagsGivenFor', function () {
     const buildCommand = (argv: string[]) => {
       const command = new Command();
