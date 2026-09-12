@@ -357,8 +357,12 @@ function GeneratedTextInput({
     }
   });
 
+  // Dimmed while `isPristine`, matching every other text spec's
+  // ghost-placeholder look, so a still-unedited generated value reads as a
+  // default rather than something the user actually typed; the moment it's
+  // edited it switches to normal (primary) text color like any real answer.
   return (
-    <Text>
+    <Text dimColor={isPristine}>
       {value.slice(0, cursorOffset)}
       <Text inverse>
         {cursorOffset < value.length ? value[cursorOffset] : ' '}
