@@ -206,7 +206,7 @@ export type EditResult = {
 };
 
 /**
- * The result of pressing backspace/delete in `GeneratedTextInput`: on a
+ * The result of pressing backspace in `GeneratedTextInput`: on a
  * still-pristine (`isPristine`) generated default, clears it outright
  * rather than erasing one character from wherever the cursor happens to
  * sit in text the user never typed; otherwise removes the character just
@@ -215,6 +215,11 @@ export type EditResult = {
  * left showing a bare empty field) rather than leaving `value` empty, with
  * the cursor reset to the start (matching the fresh-clear cursor position
  * above), not wherever it landed while typing.
+ *
+ * Forward-delete is `applyDelete()`, not this — the two keys remove a
+ * different character (before vs. at the cursor) and leave the cursor in
+ * different places, so sharing one function between them would get one of
+ * the two wrong.
  *
  * @param value - The field's current value.
  * @param cursorOffset - The cursor's current position within `value`.
@@ -240,6 +245,41 @@ export function applyBackspace(
     return { value: dynamicDefault, cursorOffset: 0 };
   }
   return { value: nextValue, cursorOffset: cursorOffset - 1 };
+}
+
+/**
+ * The result of pressing forward-delete in `GeneratedTextInput`: on a
+ * still-pristine generated default, clears it outright (same rule as
+ * `applyBackspace()`); otherwise removes the character *at* the cursor
+ * (not before it) and leaves the cursor position unchanged, same as any
+ * ordinary forward-delete — and, like `applyBackspace()`, restores the
+ * suggested default (cursor at the start) if that empties the user's own
+ * typed text.
+ *
+ * @param value - The field's current value.
+ * @param cursorOffset - The cursor's current position within `value`.
+ * @param isPristine - Whether `value` still equals the currently-shown generated default.
+ * @param dynamicDefault - The currently-shown generated default, to restore to.
+ * @returns The resulting value and cursor position.
+ */
+export function applyDelete(
+  value: string,
+  cursorOffset: number,
+  isPristine: boolean,
+  dynamicDefault: string,
+): EditResult {
+  if (isPristine) {
+    return { value: '', cursorOffset: 0 };
+  }
+  if (cursorOffset >= value.length) {
+    return { value, cursorOffset };
+  }
+  const nextValue =
+    value.slice(0, cursorOffset) + value.slice(cursorOffset + 1);
+  if (nextValue === '') {
+    return { value: dynamicDefault, cursorOffset: 0 };
+  }
+  return { value: nextValue, cursorOffset };
 }
 
 /**

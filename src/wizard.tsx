@@ -1,11 +1,13 @@
 import { Box, Static, Text, useInput } from 'ink';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 
 import {
+  type EditResult,
   type Hint,
   applyBackspace,
+  applyDelete,
   applyTypedInput,
   choicesFor,
   defaultIndexFor,
@@ -335,12 +337,32 @@ function GeneratedTextInput({
 }: GeneratedTextInputProps) {
   const [cursorOffset, setCursorOffset] = useState(value.length);
 
-  // Keeps the cursor in bounds when `value` changes out from under us (a
-  // ctrl+r regenerate, or a step transition), mirroring ink-text-input's own
-  // clamping effect for its `value` prop.
+  // `value` changes for two different reasons that want two different
+  // cursor placements: our own edit below (typing/backspace/delete), which
+  // already computes the exact cursor position it wants via
+  // applyEdit()/setCursorOffset, and an externally-driven replacement — the
+  // initial generated default arriving (this component mounts before
+  // Wizard's own effect has populated `value`, so it starts out `''`) or a
+  // ctrl+r regenerate — for which the cursor belongs at the end, as if the
+  // user had just typed it. This ref is how the effect below tells the two
+  // apart: set right before we call onChange ourselves, and consumed (reset
+  // to false) the moment the effect sees it, so it's only ever true for a
+  // change this component caused.
+  const ownChangeRef = useRef(false);
+
   useEffect(() => {
-    setCursorOffset(offset => Math.min(offset, value.length));
+    if (ownChangeRef.current) {
+      ownChangeRef.current = false;
+      return;
+    }
+    setCursorOffset(value.length);
   }, [value]);
+
+  const applyEdit = (next: EditResult) => {
+    ownChangeRef.current = true;
+    onChange(next.value);
+    setCursorOffset(next.cursorOffset);
+  };
 
   useInput((input, key) => {
     if (key.ctrl && input === 'r') {
@@ -364,21 +386,18 @@ function GeneratedTextInput({
       setCursorOffset(offset => Math.min(value.length, offset + 1));
       return;
     }
-    if (key.backspace || key.delete) {
-      const next = applyBackspace(
-        value,
-        cursorOffset,
-        isPristine,
-        dynamicDefault,
+    if (key.backspace) {
+      applyEdit(
+        applyBackspace(value, cursorOffset, isPristine, dynamicDefault),
       );
-      onChange(next.value);
-      setCursorOffset(next.cursorOffset);
+      return;
+    }
+    if (key.delete) {
+      applyEdit(applyDelete(value, cursorOffset, isPristine, dynamicDefault));
       return;
     }
     if (input) {
-      const next = applyTypedInput(value, cursorOffset, isPristine, input);
-      onChange(next.value);
-      setCursorOffset(next.cursorOffset);
+      applyEdit(applyTypedInput(value, cursorOffset, isPristine, input));
     }
   });
 

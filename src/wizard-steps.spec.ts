@@ -6,6 +6,7 @@ import { expect } from 'chai';
 
 import {
   applyBackspace,
+  applyDelete,
   applyTypedInput,
   choicesFor,
   defaultIndexFor,
@@ -445,6 +446,45 @@ describe('wizard-steps', function () {
 
     it("restores the suggested default (cursor at the start) once the user's own text is erased to nothing", function () {
       expect(applyBackspace('x', 1, false, 'brave-otter')).to.deep.equal({
+        value: 'brave-otter',
+        cursorOffset: 0,
+      });
+    });
+  });
+
+  describe('applyDelete', function () {
+    it('clears a pristine value outright, regardless of cursor position', function () {
+      expect(applyDelete('brave-otter', 5, true, 'brave-otter')).to.deep.equal({
+        value: '',
+        cursorOffset: 0,
+      });
+    });
+
+    it('removes the character at the cursor (not before it) when not pristine', function () {
+      // cursorOffset 5 sits on the '-'; backspace at the same offset would
+      // instead remove 'e' (the character before it) — this is the
+      // distinction the fix is about.
+      expect(applyDelete('brave-otter', 5, false, 'brave-otter')).to.deep.equal(
+        { value: 'braveotter', cursorOffset: 5 },
+      );
+    });
+
+    it('leaves the cursor position unchanged, unlike backspace', function () {
+      const result = applyDelete('brave-otter', 5, false, 'brave-otter');
+      expect(result.cursorOffset).to.equal(5);
+    });
+
+    it('is a no-op at the end of the field when not pristine', function () {
+      expect(
+        applyDelete('brave-otter', 'brave-otter'.length, false, 'brave-otter'),
+      ).to.deep.equal({
+        value: 'brave-otter',
+        cursorOffset: 'brave-otter'.length,
+      });
+    });
+
+    it("restores the suggested default (cursor at the start) once the user's own text is erased to nothing", function () {
+      expect(applyDelete('x', 0, false, 'brave-otter')).to.deep.equal({
         value: 'brave-otter',
         cursorOffset: 0,
       });
