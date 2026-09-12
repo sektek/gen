@@ -70,5 +70,40 @@ describe('schema', function () {
 
       expect(result.find(spec => spec.key === 'testFramework')).to.be.undefined;
     });
+
+    it('includes list-kind dependencies/devDependencies options for @sektek/js:* namespaces', function () {
+      const result = schemaFor('@sektek/js:app');
+
+      expect(result).to.deep.include({
+        key: 'dependencies',
+        flag: '--dependencies <list>',
+        repeatFlag: '--dependency <pkg>',
+        prompt:
+          'Dependencies to add (package or package@version, comma-delimited)',
+        repeatHelpText:
+          'Add a dependency (package or package@version); repeatable',
+        kind: 'list',
+        default: [],
+      });
+      expect(result).to.deep.include({
+        key: 'devDependencies',
+        flag: '--dev-dependencies <list>',
+        repeatFlag: '--dev-dependency <pkg>',
+        prompt:
+          'Dev dependencies to add (package or package@version, comma-delimited)',
+        repeatHelpText:
+          'Add a dev dependency (package or package@version); repeatable',
+        kind: 'list',
+        default: [],
+      });
+    });
+
+    it('does not include dependencies/devDependencies for non-@sektek/js:* namespaces', function () {
+      const result = schemaFor('@sektek/base:app');
+
+      expect(result.find(spec => spec.key === 'dependencies')).to.be.undefined;
+      expect(result.find(spec => spec.key === 'devDependencies')).to.be
+        .undefined;
+    });
   });
 });

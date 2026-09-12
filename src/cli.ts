@@ -5,7 +5,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { resolveConfigDefaults } from '@sektek/generator';
 
-import { addSchemaOptions, resolve } from './options.js';
+import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
 import { explicitOptionKeysFromWizard } from './wizard-steps.js';
@@ -267,20 +267,12 @@ export async function main(argv: string[]): Promise<void> {
   addSchemaOptions(program, namespace);
   program.parse(argv);
 
-  const { yes, install, force, dest, ...schemaFlags } =
-    program.opts<CliOptions>();
+  const { yes, install, force, dest } = program.opts<CliOptions>();
 
-  // Only what the user actually typed. Checking against undefined isn't
-  // enough: commander gives a negated flag like --no-private an implicit
-  // `true` default even with no explicit default passed to .option(), so
-  // an unset --no-private would otherwise look "given" as true.
-  // getOptionValueSource() distinguishes that implicit default from an
-  // actual CLI-provided value.
-  const flagsGiven = Object.fromEntries(
-    Object.keys(schemaFlags)
-      .filter(key => program.getOptionValueSource(key) === 'cli')
-      .map(key => [key, schemaFlags[key]]),
-  );
+  // Only what the user actually typed, schema-driven (including the
+  // two-flags-one-key merge for `kind: 'list'` specs) — see
+  // flagsGivenFor()'s own doc comment.
+  const flagsGiven = flagsGivenFor(program, namespace);
 
   const configDefaults = await resolveConfigDefaults(namespace, {
     cwd: process.cwd(),
@@ -292,7 +284,10 @@ export async function main(argv: string[]): Promise<void> {
   let explicitOptionKeys: string[];
   if (interactive) {
     const wizardResult = await runWizard(namespace, flagsGiven, configDefaults);
-    answers = wizardResult.answers;
+    // The wizard never prompts for a 'list' spec, so its answers alone
+    // would leave dependencies/devDependencies undefined; resolve() layers
+    // in their schema/config default, same as the non-interactive path.
+    answers = resolve(namespace, wizardResult.answers, configDefaults);
     explicitOptionKeys = explicitOptionKeysFromWizard(
       flagsGiven,
       wizardResult.answeredKeys,
