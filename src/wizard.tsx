@@ -261,17 +261,25 @@ function renderInput({
   }
 
   if (spec.kind === 'text') {
+    // Ghost default text is rendered ourselves via <Text dimColor> (line
+    // below) rather than through ink-text-input's own `placeholder` prop,
+    // which styles itself with a hardcoded chalk.grey — a different, and
+    // visibly inconsistent, color mechanism from the dimColor/chalk.dim
+    // treatment the project-name step's GeneratedTextInput already uses
+    // for its own pristine default. `placeholder` is left unset here (not
+    // passed through) so ink-text-input never renders its own grey copy
+    // alongside this one.
     return (
       <Box>
         <Text>{spec.prompt}: </Text>
         <TextInput
           value={textValue}
           onChange={setTextValue}
-          placeholder={
-            spec.default !== undefined ? String(spec.default) : undefined
-          }
           onSubmit={value => advance(value === '' ? spec.default : value)}
         />
+        {textValue === '' && spec.default !== undefined && (
+          <Text dimColor>{String(spec.default)}</Text>
+        )}
       </Box>
     );
   }
