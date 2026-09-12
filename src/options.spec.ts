@@ -17,7 +17,6 @@ describe('options', function () {
       const resolved = resolve('@sektek/base:app', {});
 
       expect(resolved).to.deep.equal({
-        namespace: 'sektek',
         profile: 'default',
         description: undefined,
         gitInit: true,
@@ -31,10 +30,10 @@ describe('options', function () {
     });
 
     it('lets a given flag override its default', function () {
-      const resolved = resolve('@sektek/base:app', { namespace: 'acme' });
+      const resolved = resolve('@sektek/base:app', { profile: 'ci' });
 
-      expect(resolved.namespace).to.equal('acme');
-      expect(resolved.profile).to.equal('default');
+      expect(resolved.profile).to.equal('ci');
+      expect(resolved.gitInit).to.equal(true);
     });
 
     it('throws one aggregated error listing every missing required option', function () {

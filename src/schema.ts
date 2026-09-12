@@ -41,13 +41,6 @@ export type OptionSpec = {
 // as workspace-wide defaults regardless of which sub-generator runs.
 export const CORE_OPTIONS: OptionSpec[] = [
   {
-    key: 'namespace',
-    flag: '--namespace <value>',
-    prompt: 'Config namespace',
-    kind: 'text',
-    default: 'sektek',
-  },
-  {
     key: 'profile',
     flag: '--profile <value>',
     prompt: 'Profile',
