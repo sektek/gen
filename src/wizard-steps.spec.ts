@@ -342,6 +342,21 @@ describe('wizard-steps', function () {
     it('only implies keys actually present in schema', function () {
       expect(gitInitImpliedAnswers(false, [gitInitSpec])).to.deep.equal({});
     });
+
+    // Regression test: withConfigDefaults() (schema.ts) can override a
+    // spec's own `default` from a config file — createRepo's included, so
+    // a config setting createRepo's default to true must not survive into
+    // the implied answer once gitInit is declined, or the wizard would
+    // silently finish with createRepo: true and no local repo to push from.
+    it('forces createRepo to false even when its schema default has been overridden to true', function () {
+      const schemaWithOverriddenDefault = githubSchema.map(spec =>
+        spec.key === 'createRepo' ? { ...spec, default: true } : spec,
+      );
+
+      expect(
+        gitInitImpliedAnswers(false, schemaWithOverriddenDefault).createRepo,
+      ).to.equal(false);
+    });
   });
 
   describe('initialAnswers', function () {
