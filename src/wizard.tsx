@@ -7,7 +7,6 @@ import {
   type EditResult,
   type Hint,
   applyBackspace,
-  applyDelete,
   applyTypedInput,
   choicesFor,
   defaultIndexFor,
@@ -338,16 +337,17 @@ function GeneratedTextInput({
   const [cursorOffset, setCursorOffset] = useState(value.length);
 
   // `value` changes for two different reasons that want two different
-  // cursor placements: our own edit below (typing/backspace/delete), which
-  // already computes the exact cursor position it wants via
+  // cursor placements: our own edit below (typing/backspace), which already
+  // computes the exact cursor position it wants via
   // applyEdit()/setCursorOffset, and an externally-driven replacement — the
   // initial generated default arriving (this component mounts before
   // Wizard's own effect has populated `value`, so it starts out `''`) or a
-  // ctrl+r regenerate — for which the cursor belongs at the end, as if the
-  // user had just typed it. This ref is how the effect below tells the two
-  // apart: set right before we call onChange ourselves, and consumed (reset
-  // to false) the moment the effect sees it, so it's only ever true for a
-  // change this component caused.
+  // ctrl+r regenerate — for which the cursor belongs at the start, right
+  // after the prompt, same as when the default is restored after a full
+  // erase. This ref is how the effect below tells the two apart: set right
+  // before we call onChange ourselves, and consumed (reset to false) the
+  // moment the effect sees it, so it's only ever true for a change this
+  // component caused.
   const ownChangeRef = useRef(false);
 
   useEffect(() => {
@@ -355,7 +355,7 @@ function GeneratedTextInput({
       ownChangeRef.current = false;
       return;
     }
-    setCursorOffset(value.length);
+    setCursorOffset(0);
   }, [value]);
 
   const applyEdit = (next: EditResult) => {
@@ -386,14 +386,12 @@ function GeneratedTextInput({
       setCursorOffset(offset => Math.min(value.length, offset + 1));
       return;
     }
-    if (key.backspace) {
+    if (key.backspace || key.delete) {
+      // Both keys, deliberately: see applyBackspace()'s doc comment for why
+      // key.delete has to be treated as backspace here, not forward-delete.
       applyEdit(
         applyBackspace(value, cursorOffset, isPristine, dynamicDefault),
       );
-      return;
-    }
-    if (key.delete) {
-      applyEdit(applyDelete(value, cursorOffset, isPristine, dynamicDefault));
       return;
     }
     if (input) {
