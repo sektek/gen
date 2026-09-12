@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.0](https://github.com/sektek/gen/compare/v0.5.0...v0.6.0) (2026-09-12)
+
+### Features
+
+* wire dependency/dev-dependency CLI options into gen ([#8](https://github.com/sektek/gen/issues/8)) ([3d7c4c6](https://github.com/sektek/gen/commit/3d7c4c695466e32a2fdf71e17adab9dbc174340b)), closes [sektek/generator-js#9](https://github.com/sektek/generator-js/issues/9) [#5](https://github.com/sektek/gen/issues/5)
+
 ## [0.5.0](https://github.com/sektek/gen/compare/v0.4.0...v0.5.0) (2026-09-06)
 
 ### Features
