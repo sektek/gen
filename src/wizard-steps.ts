@@ -200,6 +200,67 @@ export function projectNameError(
   return undefined;
 }
 
+export type EditResult = {
+  value: string;
+  cursorOffset: number;
+};
+
+/**
+ * The result of pressing backspace/delete in `GeneratedTextInput`: on a
+ * still-pristine (`isPristine`) generated default, clears it outright
+ * rather than erasing one character from wherever the cursor happens to
+ * sit in text the user never typed; otherwise removes the character just
+ * before the cursor, if any.
+ *
+ * @param value - The field's current value.
+ * @param cursorOffset - The cursor's current position within `value`.
+ * @param isPristine - Whether `value` still equals the currently-shown generated default.
+ * @returns The resulting value and cursor position.
+ */
+export function applyBackspace(
+  value: string,
+  cursorOffset: number,
+  isPristine: boolean,
+): EditResult {
+  if (isPristine) {
+    return { value: '', cursorOffset: 0 };
+  }
+  if (cursorOffset === 0) {
+    return { value, cursorOffset };
+  }
+  return {
+    value: value.slice(0, cursorOffset - 1) + value.slice(cursorOffset),
+    cursorOffset: cursorOffset - 1,
+  };
+}
+
+/**
+ * The result of typing a character in `GeneratedTextInput`: on a
+ * still-pristine generated default, replaces the whole thing with just
+ * what was typed rather than inserting into the middle of text the user
+ * never typed; otherwise inserts at the cursor as usual.
+ *
+ * @param value - The field's current value.
+ * @param cursorOffset - The cursor's current position within `value`.
+ * @param isPristine - Whether `value` still equals the currently-shown generated default.
+ * @param input - The character(s) just typed.
+ * @returns The resulting value and cursor position.
+ */
+export function applyTypedInput(
+  value: string,
+  cursorOffset: number,
+  isPristine: boolean,
+  input: string,
+): EditResult {
+  if (isPristine) {
+    return { value: input, cursorOffset: input.length };
+  }
+  return {
+    value: value.slice(0, cursorOffset) + input + value.slice(cursorOffset),
+    cursorOffset: cursorOffset + input.length,
+  };
+}
+
 export type Hint = {
   key: string;
   label: string;

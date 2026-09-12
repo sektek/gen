@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { expect } from 'chai';
 
 import {
+  applyBackspace,
+  applyTypedInput,
   choicesFor,
   defaultIndexFor,
   explicitOptionKeysFromWizard,
@@ -404,6 +406,45 @@ describe('wizard-steps', function () {
         { key: '↑↓', label: 'move' },
         { key: 'Enter', label: 'select' },
       ]);
+    });
+  });
+
+  describe('applyBackspace', function () {
+    it('clears a pristine value outright, regardless of cursor position', function () {
+      expect(applyBackspace('brave-otter', 5, true)).to.deep.equal({
+        value: '',
+        cursorOffset: 0,
+      });
+    });
+
+    it('removes the character before the cursor when not pristine', function () {
+      expect(applyBackspace('brave-otter', 5, false)).to.deep.equal({
+        value: 'brav-otter',
+        cursorOffset: 4,
+      });
+    });
+
+    it('is a no-op at the start of the field when not pristine', function () {
+      expect(applyBackspace('brave-otter', 0, false)).to.deep.equal({
+        value: 'brave-otter',
+        cursorOffset: 0,
+      });
+    });
+  });
+
+  describe('applyTypedInput', function () {
+    it('replaces a pristine value outright with just what was typed', function () {
+      expect(applyTypedInput('brave-otter', 5, true, 'x')).to.deep.equal({
+        value: 'x',
+        cursorOffset: 1,
+      });
+    });
+
+    it('inserts at the cursor when not pristine', function () {
+      expect(applyTypedInput('brave-otter', 5, false, 'x')).to.deep.equal({
+        value: 'bravex-otter',
+        cursorOffset: 6,
+      });
     });
   });
 });

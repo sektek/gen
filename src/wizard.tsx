@@ -5,6 +5,8 @@ import TextInput from 'ink-text-input';
 
 import {
   type Hint,
+  applyBackspace,
+  applyTypedInput,
   choicesFor,
   defaultIndexFor,
   hintsFor,
@@ -287,8 +289,12 @@ type GeneratedTextInputProps = {
 /**
  * A `<TextInput>`-alike for a `generateDefault` spec: pre-filled with real,
  * editable text (the currently-generated default) instead of ghost
- * placeholder text, plus a ctrl+r hotkey that swaps in a freshly generated
- * value while the field still shows one unedited (`isPristine`).
+ * placeholder text, dimmed while unedited (`isPristine`), plus a ctrl+r
+ * hotkey that swaps in a freshly generated value while it's still showing
+ * one. The very first edit (a typed character, or backspace/delete) while
+ * `isPristine` replaces the whole default outright — typing starts a fresh
+ * value from just what was typed, and backspace clears it to empty —
+ * rather than editing into the middle of text the user never typed.
  *
  * Deliberately not `<TextInput>` itself: that component only excludes
  * ctrl+c from the keys it inserts as characters (see ink-text-input's own
@@ -343,17 +349,15 @@ function GeneratedTextInput({
       return;
     }
     if (key.backspace || key.delete) {
-      if (cursorOffset > 0) {
-        onChange(value.slice(0, cursorOffset - 1) + value.slice(cursorOffset));
-        setCursorOffset(offset => offset - 1);
-      }
+      const next = applyBackspace(value, cursorOffset, isPristine);
+      onChange(next.value);
+      setCursorOffset(next.cursorOffset);
       return;
     }
     if (input) {
-      onChange(
-        value.slice(0, cursorOffset) + input + value.slice(cursorOffset),
-      );
-      setCursorOffset(offset => offset + input.length);
+      const next = applyTypedInput(value, cursorOffset, isPristine, input);
+      onChange(next.value);
+      setCursorOffset(next.cursorOffset);
     }
   });
 
