@@ -5,11 +5,16 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { resolveConfigDefaults } from '@sektek/generator';
 
+import {
+  PROJECT_NAME_KEY,
+  loadGenerateProjectName,
+  resolveGeneratedDestination,
+} from './project-name.js';
 import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
+import type { OptionSpec } from './schema.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
 import { explicitOptionKeysFromWizard } from './wizard-steps.js';
-import { resolveGeneratedDestination } from './project-name.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
 
@@ -201,6 +206,154 @@ function isInteractive(yes: boolean | undefined): boolean {
   return !yes && Boolean(process.stdout.isTTY) && Boolean(process.stdin.isTTY);
 }
 
+/**
+ * Builds the synthetic, wizard-only spec for picking the destination
+ * directory's name: pre-filled with a freshly generated `adjective-noun`
+ * name, regeneratable via ctrl+r (see wizard.tsx's GeneratedTextInput).
+ * Never registered with commander (schemaFor() doesn't include it) and
+ * never seen by the automated `resolve()` path — only `runWizard()` gets it,
+ * as a `leadingSpecs` entry.
+ *
+ * @returns The project-name spec to prepend to the wizard's schema.
+ */
+async function buildProjectNameSpec(): Promise<OptionSpec> {
+  const generateName = await loadGenerateProjectName();
+  return {
+    key: PROJECT_NAME_KEY,
+    flag: '--project-name <value>',
+    prompt: 'Project name',
+    kind: 'text',
+    default: generateName(),
+    generateDefault: generateName,
+  };
+}
+
+type ResolveAnswersArgs = {
+  namespace: string;
+  flagsGiven: Record<string, unknown>;
+  configDefaults: Record<string, unknown>;
+  interactive: boolean;
+  // The project-name step to prepend to the wizard's schema, if one is
+  // needed (see `buildProjectNameSpec()`) — only ever set when `interactive`
+  // is also true.
+  projectNameSpec: OptionSpec | undefined;
+  destCwd: string;
+};
+
+type ResolvedAnswers = {
+  answers: Record<string, unknown>;
+  explicitOptionKeys: string[];
+  // The wizard's project-name answer, if its step ran; `undefined` on the
+  // automated path or when no project-name step was needed. Consumed only
+  // by `resolveDestinationRoot()` — never a real generator option.
+  chosenProjectName: unknown;
+};
+
+/**
+ * Resolves this run's answers: the interactive wizard (seeded with
+ * `flagsGiven`, prefixed with a project-name step when one is needed) or,
+ * automated, `flagsGiven` folded straight through `resolve()`.
+ *
+ * @param args - Everything either path needs.
+ * @param args.namespace - The generator namespace being run (e.g. `@sektek/js:app`).
+ * @param args.flagsGiven - Option values already supplied via CLI flags.
+ * @param args.configDefaults - Values resolved via `resolveConfigDefaults()`.
+ * @param args.interactive - Whether to run the interactive wizard at all.
+ * @param args.projectNameSpec - The project-name step to prepend, if the wizard needs one.
+ * @param args.destCwd - The directory a project-name answer would be created under.
+ * @returns The fully-resolved answers, which option keys were explicit, and the wizard's project-name answer, if any.
+ */
+async function resolveAnswers({
+  namespace,
+  flagsGiven,
+  configDefaults,
+  interactive,
+  projectNameSpec,
+  destCwd,
+}: ResolveAnswersArgs): Promise<ResolvedAnswers> {
+  if (!interactive) {
+    return {
+      answers: resolve(namespace, flagsGiven, configDefaults),
+      explicitOptionKeys: Object.keys(flagsGiven),
+      chosenProjectName: undefined,
+    };
+  }
+
+  const wizardResult = await runWizard(namespace, flagsGiven, configDefaults, {
+    leadingSpecs: projectNameSpec ? [projectNameSpec] : [],
+    destCwd,
+  });
+
+  // The chosen project name only picks the destination directory (see
+  // resolveDestinationRoot()) — it's never a real generator option, so
+  // it's pulled back out of both the answers and the answered-keys before
+  // either feeds resolve()/explicitOptionKeysFromWizard().
+  const { [PROJECT_NAME_KEY]: chosenProjectName, ...rest } =
+    wizardResult.answers;
+
+  return {
+    // The wizard never prompts for a 'list' spec, so its answers alone
+    // would leave dependencies/devDependencies undefined; resolve() layers
+    // in their schema/config default, same as the non-interactive path.
+    answers: resolve(namespace, rest, configDefaults),
+    explicitOptionKeys: explicitOptionKeysFromWizard(
+      flagsGiven,
+      wizardResult.answeredKeys.filter(key => key !== PROJECT_NAME_KEY),
+    ),
+    chosenProjectName,
+  };
+}
+
+type DestinationRootArgs = {
+  destGiven: boolean;
+  dest: string;
+  chosenProjectName: unknown;
+  options: Record<string, unknown>;
+};
+
+/**
+ * Resolves the directory to scaffold into: `dest` verbatim when `--dest`
+ * was given explicitly, otherwise a generated one. When the wizard already
+ * resolved a project name (`chosenProjectName`), that exact name is reused
+ * (`maxAttempts: 1`) rather than generating a fresh one here — a name the
+ * user explicitly typed or confirmed shouldn't be silently swapped out from
+ * under them on a (rare, only-possible-on-a-GitHub-collision-now) retry the
+ * way an entirely-automated run's name is.
+ *
+ * @param args - Whether/where to generate, plus what resolveGeneratedDestination() needs to check GitHub.
+ * @param args.destGiven - Whether --dest was given explicitly on the CLI.
+ * @param args.dest - The (possibly default) --dest value.
+ * @param args.chosenProjectName - The wizard's answer for the project-name step, if it ran.
+ * @param args.options - The fully-resolved generator options (for createRepo/repoOwner/githubToken).
+ * @returns The destination directory to scaffold into.
+ */
+async function resolveDestinationRoot({
+  destGiven,
+  dest,
+  chosenProjectName,
+  options,
+}: DestinationRootArgs): Promise<string> {
+  if (destGiven) {
+    return dest;
+  }
+
+  return resolveGeneratedDestination({
+    cwd: dest, // commander's declared default for --dest is already process.cwd()
+    // `options` is a Record<string, unknown> — a config file can put
+    // anything under these keys (e.g. `"createRepo": "false"`, a truthy
+    // *string*), so narrow at runtime rather than `as`-casting, which would
+    // just carry a wrongly-typed value straight through.
+    createRepo: options.createRepo === true,
+    repoOwner:
+      typeof options.repoOwner === 'string' ? options.repoOwner : undefined,
+    githubToken:
+      typeof options.githubToken === 'string' ? options.githubToken : undefined,
+    ...(typeof chosenProjectName === 'string'
+      ? { generateName: () => chosenProjectName, maxAttempts: 1 }
+      : {}),
+  });
+}
+
 type CliOptions = {
   yes?: boolean;
   install?: boolean;
@@ -279,23 +432,27 @@ export async function main(argv: string[]): Promise<void> {
     homeDir: homedir(),
   });
 
+  const destGiven = program.getOptionValueSource('dest') === 'cli';
   const interactive = isInteractive(yes);
-  let answers: Record<string, unknown>;
-  let explicitOptionKeys: string[];
-  if (interactive) {
-    const wizardResult = await runWizard(namespace, flagsGiven, configDefaults);
-    // The wizard never prompts for a 'list' spec, so its answers alone
-    // would leave dependencies/devDependencies undefined; resolve() layers
-    // in their schema/config default, same as the non-interactive path.
-    answers = resolve(namespace, wizardResult.answers, configDefaults);
-    explicitOptionKeys = explicitOptionKeysFromWizard(
+
+  // A generated project name is only ever needed when --dest is omitted
+  // (an explicit --dest already fully specifies the destination directory,
+  // same as always) — and only the interactive wizard can show it as a
+  // pre-filled, ctrl+r-regeneratable default; the automated path below
+  // still leaves picking one entirely to resolveGeneratedDestination(),
+  // unchanged.
+  const projectNameSpec =
+    interactive && !destGiven ? await buildProjectNameSpec() : undefined;
+
+  const { answers, explicitOptionKeys, chosenProjectName } =
+    await resolveAnswers({
+      namespace,
       flagsGiven,
-      wizardResult.answeredKeys,
-    );
-  } else {
-    answers = resolve(namespace, flagsGiven, configDefaults);
-    explicitOptionKeys = Object.keys(flagsGiven);
-  }
+      configDefaults,
+      interactive,
+      projectNameSpec,
+      destCwd: dest, // commander's declared default for --dest is already process.cwd()
+    });
 
   const merged = {
     ...answers,
@@ -309,23 +466,12 @@ export async function main(argv: string[]): Promise<void> {
   // Annotated: object-spread would otherwise drop licensed's index signature.
   const options: Record<string, unknown> = { ...licensed, explicitOptionKeys };
 
-  const destGiven = program.getOptionValueSource('dest') === 'cli';
-  const destinationRoot = destGiven
-    ? dest
-    : await resolveGeneratedDestination({
-        cwd: dest, // commander's declared default for --dest is already process.cwd()
-        // `options` is a Record<string, unknown> — a config file can put
-        // anything under these keys (e.g. `"createRepo": "false"`, a
-        // truthy *string*), so narrow at runtime rather than `as`-casting,
-        // which would just carry a wrongly-typed value straight through.
-        createRepo: options.createRepo === true,
-        repoOwner:
-          typeof options.repoOwner === 'string' ? options.repoOwner : undefined,
-        githubToken:
-          typeof options.githubToken === 'string'
-            ? options.githubToken
-            : undefined,
-      });
+  const destinationRoot = await resolveDestinationRoot({
+    destGiven,
+    dest,
+    chosenProjectName,
+    options,
+  });
 
   await runGenerator(namespace, options, {
     destinationRoot,

@@ -28,6 +28,13 @@ export type OptionSpec = {
   choices?: readonly string[];
   default?: unknown;
   required?: boolean;
+  // 'text' specs only. When set, the wizard pre-fills the input with the
+  // spec's current `default` as real, editable text (not ghost placeholder
+  // text) and lets the user regenerate a fresh one with ctrl+r while the
+  // field still shows that value unedited — see wizard.tsx's
+  // GeneratedTextInput. Not used outside the wizard: `resolve()` (the
+  // non-interactive path) only ever reads the static `default`.
+  generateDefault?: () => string;
 };
 
 // Options every generator understands, since CoreGenerator applies these

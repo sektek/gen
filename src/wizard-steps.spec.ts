@@ -1,13 +1,21 @@
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
 import { expect } from 'chai';
 
 import {
+  applyBackspace,
+  applyTypedInput,
   choicesFor,
   defaultIndexFor,
   explicitOptionKeysFromWizard,
+  hintsFor,
   initialAnswers,
   licenseImpliedAnswers,
   mergeAnswer,
   pendingSpecs,
+  projectNameError,
 } from './wizard-steps.js';
 import type { OptionSpec } from './schema.js';
 
@@ -333,6 +341,129 @@ describe('wizard-steps', function () {
 
     it('returns nothing when neither flags nor live answers were given', function () {
       expect(explicitOptionKeysFromWizard({}, [])).to.deep.equal([]);
+    });
+  });
+
+  describe('projectNameError', function () {
+    let cwd: string;
+
+    beforeEach(function () {
+      cwd = mkdtempSync(join(tmpdir(), 'sektek-gen-wizard-steps-'));
+    });
+
+    afterEach(function () {
+      rmSync(cwd, { recursive: true, force: true });
+    });
+
+    it('returns undefined for a name that is safe and not already taken', function () {
+      expect(projectNameError('brave-otter', cwd)).to.be.undefined;
+    });
+
+    it("rejects a name that isn't a safe path segment", function () {
+      expect(projectNameError('../escaped', cwd)).to.match(
+        /isn't a valid directory name/,
+      );
+    });
+
+    it('rejects a name that already exists under cwd', function () {
+      mkdirSync(join(cwd, 'taken-name'));
+      expect(projectNameError('taken-name', cwd)).to.match(/already exists/);
+    });
+  });
+
+  describe('hintsFor', function () {
+    const generatedTextSpec: OptionSpec = {
+      ...textSpec,
+      generateDefault: () => 'brave-otter',
+    };
+
+    it('returns nothing once every step is answered', function () {
+      expect(hintsFor(undefined)).to.deep.equal([]);
+    });
+
+    it('shows Enter-to-confirm for a plain text spec', function () {
+      expect(hintsFor(textSpec)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+      ]);
+    });
+
+    it('adds a ^R hint for a generateDefault text spec while pristine', function () {
+      expect(hintsFor(generatedTextSpec, true)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+        { key: '^R', label: 'new name' },
+      ]);
+    });
+
+    it('omits the ^R hint for a generateDefault text spec once edited', function () {
+      expect(hintsFor(generatedTextSpec, false)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+      ]);
+    });
+
+    it('defaults to omitting the ^R hint when isPristine is not given', function () {
+      expect(hintsFor(generatedTextSpec)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+      ]);
+    });
+
+    it('shows move/select for a select spec', function () {
+      expect(hintsFor(selectSpec)).to.deep.equal([
+        { key: '↑↓', label: 'move' },
+        { key: 'Enter', label: 'select' },
+      ]);
+    });
+
+    it('shows move/select for a boolean spec', function () {
+      expect(hintsFor(booleanSpec)).to.deep.equal([
+        { key: '↑↓', label: 'move' },
+        { key: 'Enter', label: 'select' },
+      ]);
+    });
+  });
+
+  describe('applyBackspace', function () {
+    it('clears a pristine value outright, regardless of cursor position', function () {
+      expect(
+        applyBackspace('brave-otter', 5, true, 'brave-otter'),
+      ).to.deep.equal({
+        value: '',
+        cursorOffset: 0,
+      });
+    });
+
+    it('removes the character before the cursor when not pristine', function () {
+      expect(
+        applyBackspace('brave-otter', 5, false, 'brave-otter'),
+      ).to.deep.equal({ value: 'brav-otter', cursorOffset: 4 });
+    });
+
+    it('is a no-op at the start of the field when not pristine', function () {
+      expect(
+        applyBackspace('brave-otter', 0, false, 'brave-otter'),
+      ).to.deep.equal({ value: 'brave-otter', cursorOffset: 0 });
+    });
+
+    it("restores the suggested default (cursor at the start) once the user's own text is erased to nothing", function () {
+      expect(applyBackspace('x', 1, false, 'brave-otter')).to.deep.equal({
+        value: 'brave-otter',
+        cursorOffset: 0,
+      });
+    });
+  });
+
+  describe('applyTypedInput', function () {
+    it('replaces a pristine value outright with just what was typed', function () {
+      expect(applyTypedInput('brave-otter', 5, true, 'x')).to.deep.equal({
+        value: 'x',
+        cursorOffset: 1,
+      });
+    });
+
+    it('inserts at the cursor when not pristine', function () {
+      expect(applyTypedInput('brave-otter', 5, false, 'x')).to.deep.equal({
+        value: 'bravex-otter',
+        cursorOffset: 6,
+      });
     });
   });
 });
