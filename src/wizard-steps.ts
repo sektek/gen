@@ -212,7 +212,9 @@ export type EditResult = {
  * sit in text the user never typed; otherwise removes the character just
  * before the cursor, if any — and if that erases the user's own typed
  * text down to nothing, brings the suggested default back (so it's never
- * left showing a bare empty field) rather than leaving `value` empty.
+ * left showing a bare empty field) rather than leaving `value` empty, with
+ * the cursor reset to the start (matching the fresh-clear cursor position
+ * above), not wherever it landed while typing.
  *
  * @param value - The field's current value.
  * @param cursorOffset - The cursor's current position within `value`.
@@ -235,7 +237,7 @@ export function applyBackspace(
   const nextValue =
     value.slice(0, cursorOffset - 1) + value.slice(cursorOffset);
   if (nextValue === '') {
-    return { value: dynamicDefault, cursorOffset: dynamicDefault.length };
+    return { value: dynamicDefault, cursorOffset: 0 };
   }
   return { value: nextValue, cursorOffset: cursorOffset - 1 };
 }

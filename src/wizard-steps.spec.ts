@@ -443,10 +443,10 @@ describe('wizard-steps', function () {
       ).to.deep.equal({ value: 'brave-otter', cursorOffset: 0 });
     });
 
-    it("restores the suggested default once the user's own text is erased to nothing", function () {
+    it("restores the suggested default (cursor at the start) once the user's own text is erased to nothing", function () {
       expect(applyBackspace('x', 1, false, 'brave-otter')).to.deep.equal({
         value: 'brave-otter',
-        cursorOffset: 'brave-otter'.length,
+        cursorOffset: 0,
       });
     });
   });
