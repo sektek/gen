@@ -14,6 +14,7 @@ import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
 import type { OptionSpec } from './schema.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
+import { deriveAuthorFromGitConfig } from './git-identity.js';
 import { explicitOptionKeysFromWizard } from './wizard-steps.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
@@ -427,10 +428,17 @@ export async function main(argv: string[]): Promise<void> {
   // flagsGivenFor()'s own doc comment.
   const flagsGiven = flagsGivenFor(program, namespace);
 
-  const configDefaults = await resolveConfigDefaults(namespace, {
-    cwd: process.cwd(),
-    homeDir: homedir(),
-  });
+  // gitIdentityDefaults is a fallback layer only — spread first so any real
+  // gen.config.* value (from resolveConfigDefaults()) for the same key
+  // still wins, same as a config file already overrides a schema default.
+  const gitIdentityDefaults = { author: await deriveAuthorFromGitConfig() };
+  const configDefaults = {
+    ...gitIdentityDefaults,
+    ...(await resolveConfigDefaults(namespace, {
+      cwd: process.cwd(),
+      homeDir: homedir(),
+    })),
+  };
 
   const destGiven = program.getOptionValueSource('dest') === 'cli';
   const interactive = isInteractive(yes);

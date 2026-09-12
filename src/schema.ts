@@ -88,11 +88,15 @@ export const JS_OPTIONS: OptionSpec[] = [
     default: 'sektek',
   },
   {
+    // No static default: derived from the caller's own git config at
+    // runtime instead (see cli.ts's deriveAuthorFromGitConfig() call,
+    // folded into configDefaults) — falls back to `undefined` (leaving
+    // this prompt/flag as the only way to set it) when git config has
+    // neither user.name nor user.email set.
     key: 'author',
     flag: '--author <value>',
     prompt: 'Author',
     kind: 'text',
-    default: 'Edward Kelly <eddie@sektek.net>',
   },
   {
     key: 'license',
