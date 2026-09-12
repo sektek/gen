@@ -5,16 +5,17 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { resolveConfigDefaults } from '@sektek/generator';
 
+import { type OptionSpec, PACKAGE_SCOPE_OPTIONS } from './schema.js';
 import {
   PROJECT_NAME_KEY,
   loadGenerateProjectName,
   resolveGeneratedDestination,
 } from './project-name.js';
 import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
-import type { OptionSpec } from './schema.js';
 import { REGISTRY } from './registry.js';
 import { applyLicenseImplications } from './license-implications.js';
 import { explicitOptionKeysFromWizard } from './wizard-steps.js';
+import { resolvePackageScopeDefault } from './package-scope.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
 
@@ -228,6 +229,57 @@ async function buildProjectNameSpec(): Promise<OptionSpec> {
   };
 }
 
+/**
+ * The automated (`!interactive`) path's equivalent of `packageScope`'s
+ * `generateDefaultAsync` (schema.ts's `PACKAGE_SCOPE_OPTIONS`, SEK-94): the
+ * wizard resolves that default live, from whatever's been answered so far
+ * in the same run, but `resolve()` never reads `generateDefaultAsync` (only
+ * a spec's static `default` — see schema.ts's own doc comment on why), and
+ * a `--yes`/flags-only run has no wizard to compute it live either way. So
+ * this resolves the identical derivation eagerly from `flagsGiven` (the
+ * only source of `createRepo`/`repoOwner`/`githubToken` available at all
+ * on this path) and folds it in as an `extraSpecs` entry, which
+ * `resolve()`'s `defaults` layer picks up the same way a real schema
+ * default would — still overridable by an explicit `--package-scope`, a
+ * config file, or (for the base family, which has no packageScope option
+ * at all) simply never applying.
+ *
+ * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
+ * @param flagsGiven - Option values already supplied via CLI flags.
+ * @returns A one-entry `extraSpecs` array for `resolve()`, or `[]` when
+ *   irrelevant (a non-js namespace, or `--package-scope` already given —
+ *   in the latter case resolving this would just be discarded anyway).
+ */
+async function packageScopeExtraSpecs(
+  namespace: string,
+  flagsGiven: Record<string, unknown>,
+): Promise<OptionSpec[]> {
+  if (
+    !namespace.startsWith('@sektek/js:') ||
+    flagsGiven.packageScope !== undefined
+  ) {
+    return [];
+  }
+
+  const packageScope = await resolvePackageScopeDefault({
+    createRepo: flagsGiven.createRepo === true,
+    repoOwner:
+      typeof flagsGiven.repoOwner === 'string'
+        ? flagsGiven.repoOwner
+        : undefined,
+    githubToken:
+      typeof flagsGiven.githubToken === 'string'
+        ? flagsGiven.githubToken
+        : undefined,
+  });
+
+  // Reuses schema.ts's own packageScope spec (flag/prompt/kind) rather than
+  // re-typing it here, just overriding `default` — `generateDefaultAsync`
+  // along for the ride is harmless: resolve() never reads it (see its own
+  // doc comment on `extraSpecs`).
+  return [{ ...PACKAGE_SCOPE_OPTIONS[0], default: packageScope }];
+}
+
 type ResolveAnswersArgs = {
   namespace: string;
   flagsGiven: Record<string, unknown>;
@@ -273,7 +325,12 @@ async function resolveAnswers({
 }: ResolveAnswersArgs): Promise<ResolvedAnswers> {
   if (!interactive) {
     return {
-      answers: resolve(namespace, flagsGiven, configDefaults),
+      answers: resolve(
+        namespace,
+        flagsGiven,
+        configDefaults,
+        await packageScopeExtraSpecs(namespace, flagsGiven),
+      ),
       explicitOptionKeys: Object.keys(flagsGiven),
       chosenProjectName: undefined,
     };

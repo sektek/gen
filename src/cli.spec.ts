@@ -217,4 +217,55 @@ describe('cli', function () {
       expect(generated).to.exist;
     });
   });
+
+  // SEK-94: packageScope's default now depends on createRepo/repoOwner,
+  // resolved eagerly for this (non-interactive) path by cli.ts's
+  // packageScopeExtraSpecs(). createRepo isn't set in either test here, so
+  // resolvePackageScopeDefault() short-circuits to '' without any network
+  // call — see package-scope.spec.ts for the GitHub-derived branches.
+  describe('main (packageScope default, automated mode)', function () {
+    let destinationRoot: string;
+
+    beforeEach(function () {
+      destinationRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-scope-'));
+    });
+
+    afterEach(function () {
+      rmSync(destinationRoot, { recursive: true, force: true });
+    });
+
+    it('defaults to an unscoped package name when no GitHub repo is being created', async function () {
+      await main([
+        'node',
+        'gen',
+        'js:base-package',
+        '--yes',
+        '--dest',
+        destinationRoot,
+      ]);
+
+      const packageJson = JSON.parse(
+        readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
+      );
+      expect(packageJson.name).to.not.include('@');
+    });
+
+    it('still lets an explicit --package-scope win', async function () {
+      await main([
+        'node',
+        'gen',
+        'js:base-package',
+        '--yes',
+        '--dest',
+        destinationRoot,
+        '--package-scope',
+        'acme',
+      ]);
+
+      const packageJson = JSON.parse(
+        readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
+      );
+      expect(packageJson.name).to.match(/^@acme\//);
+    });
+  });
 });
