@@ -199,3 +199,36 @@ export function projectNameError(
   }
   return undefined;
 }
+
+export type Hint = {
+  key: string;
+  label: string;
+};
+
+/**
+ * The keybinding hints for the wizard's persistent status bar (see
+ * wizard.tsx's `StatusBar`): which keys do what for the current step, kept
+ * separate from any inline validation error (which is about the specific
+ * value just typed, not the step in general). `undefined` (no step left,
+ * i.e. the wizard is about to finish) shows nothing.
+ *
+ * @param spec - The option spec currently being prompted for, if any.
+ * @returns The hints to show in the status bar, in display order.
+ */
+export function hintsFor(spec: OptionSpec | undefined): Hint[] {
+  if (!spec) {
+    return [];
+  }
+
+  if (spec.kind === 'select' || spec.kind === 'boolean') {
+    return [
+      { key: '↑↓', label: 'move' },
+      { key: 'Enter', label: 'select' },
+    ];
+  }
+
+  return [
+    { key: 'Enter', label: 'confirm' },
+    ...(spec.generateDefault ? [{ key: '^R', label: 'new name' }] : []),
+  ];
+}

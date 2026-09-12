@@ -4,8 +4,10 @@ import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 
 import {
+  type Hint,
   choicesFor,
   defaultIndexFor,
+  hintsFor,
   initialAnswers,
   mergeAnswer,
   pendingSpecs,
@@ -162,6 +164,7 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
           onRegenerate: regenerate,
           onGeneratedSubmit: submitGenerated,
         })}
+      {spec && <StatusBar hints={hintsFor(spec)} />}
     </Box>
   );
 }
@@ -239,7 +242,6 @@ function renderInput({
             onSubmit={onGeneratedSubmit}
           />
         </Box>
-        <Text dimColor>(ctrl+r for a new one)</Text>
         {error && <Text color="red">{error}</Text>}
       </Box>
     );
@@ -363,5 +365,41 @@ function GeneratedTextInput({
       </Text>
       {value.slice(cursorOffset + 1)}
     </Text>
+  );
+}
+
+/**
+ * The persistent hint bar rendered below the current step's input: a
+ * full-width rule (via a top-only border, so it reads as a separator
+ * rather than boxing the hints in) followed by each hint as `key label`,
+ * dim so it doesn't compete with the prompt above it. Renders nothing once
+ * `hints` is empty (see `hintsFor()` — only when there's no step left).
+ *
+ * @param props - The hints to show.
+ * @param props.hints - The keybinding hints for the current step, in display order.
+ * @returns The rendered status bar, or `null` when there are no hints to show.
+ */
+function StatusBar({ hints }: { hints: Hint[] }) {
+  if (hints.length === 0) {
+    return null;
+  }
+
+  return (
+    <Box
+      width="100%"
+      borderStyle="single"
+      borderBottom={false}
+      borderLeft={false}
+      borderRight={false}
+      borderDimColor>
+      <Text dimColor>
+        {hints.map((hint, index) => (
+          <Text key={hint.key}>
+            {index > 0 && '   '}
+            <Text bold>{hint.key}</Text> {hint.label}
+          </Text>
+        ))}
+      </Text>
+    </Box>
   );
 }

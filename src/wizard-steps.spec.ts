@@ -8,6 +8,7 @@ import {
   choicesFor,
   defaultIndexFor,
   explicitOptionKeysFromWizard,
+  hintsFor,
   initialAnswers,
   licenseImpliedAnswers,
   mergeAnswer,
@@ -365,6 +366,44 @@ describe('wizard-steps', function () {
     it('rejects a name that already exists under cwd', function () {
       mkdirSync(join(cwd, 'taken-name'));
       expect(projectNameError('taken-name', cwd)).to.match(/already exists/);
+    });
+  });
+
+  describe('hintsFor', function () {
+    const generatedTextSpec: OptionSpec = {
+      ...textSpec,
+      generateDefault: () => 'brave-otter',
+    };
+
+    it('returns nothing once every step is answered', function () {
+      expect(hintsFor(undefined)).to.deep.equal([]);
+    });
+
+    it('shows Enter-to-confirm for a plain text spec', function () {
+      expect(hintsFor(textSpec)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+      ]);
+    });
+
+    it('adds a ^R hint for a generateDefault text spec', function () {
+      expect(hintsFor(generatedTextSpec)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+        { key: '^R', label: 'new name' },
+      ]);
+    });
+
+    it('shows move/select for a select spec', function () {
+      expect(hintsFor(selectSpec)).to.deep.equal([
+        { key: '↑↓', label: 'move' },
+        { key: 'Enter', label: 'select' },
+      ]);
+    });
+
+    it('shows move/select for a boolean spec', function () {
+      expect(hintsFor(booleanSpec)).to.deep.equal([
+        { key: '↑↓', label: 'move' },
+        { key: 'Enter', label: 'select' },
+      ]);
     });
   });
 });
