@@ -387,10 +387,22 @@ describe('wizard-steps', function () {
       ]);
     });
 
-    it('adds a ^R hint for a generateDefault text spec', function () {
-      expect(hintsFor(generatedTextSpec)).to.deep.equal([
+    it('adds a ^R hint for a generateDefault text spec while pristine', function () {
+      expect(hintsFor(generatedTextSpec, true)).to.deep.equal([
         { key: 'Enter', label: 'confirm' },
         { key: '^R', label: 'new name' },
+      ]);
+    });
+
+    it('omits the ^R hint for a generateDefault text spec once edited', function () {
+      expect(hintsFor(generatedTextSpec, false)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+      ]);
+    });
+
+    it('defaults to omitting the ^R hint when isPristine is not given', function () {
+      expect(hintsFor(generatedTextSpec)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
       ]);
     });
 
@@ -411,23 +423,30 @@ describe('wizard-steps', function () {
 
   describe('applyBackspace', function () {
     it('clears a pristine value outright, regardless of cursor position', function () {
-      expect(applyBackspace('brave-otter', 5, true)).to.deep.equal({
+      expect(
+        applyBackspace('brave-otter', 5, true, 'brave-otter'),
+      ).to.deep.equal({
         value: '',
         cursorOffset: 0,
       });
     });
 
     it('removes the character before the cursor when not pristine', function () {
-      expect(applyBackspace('brave-otter', 5, false)).to.deep.equal({
-        value: 'brav-otter',
-        cursorOffset: 4,
-      });
+      expect(
+        applyBackspace('brave-otter', 5, false, 'brave-otter'),
+      ).to.deep.equal({ value: 'brav-otter', cursorOffset: 4 });
     });
 
     it('is a no-op at the start of the field when not pristine', function () {
-      expect(applyBackspace('brave-otter', 0, false)).to.deep.equal({
+      expect(
+        applyBackspace('brave-otter', 0, false, 'brave-otter'),
+      ).to.deep.equal({ value: 'brave-otter', cursorOffset: 0 });
+    });
+
+    it("restores the suggested default once the user's own text is erased to nothing", function () {
+      expect(applyBackspace('x', 1, false, 'brave-otter')).to.deep.equal({
         value: 'brave-otter',
-        cursorOffset: 0,
+        cursorOffset: 'brave-otter'.length,
       });
     });
   });

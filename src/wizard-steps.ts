@@ -210,17 +210,21 @@ export type EditResult = {
  * still-pristine (`isPristine`) generated default, clears it outright
  * rather than erasing one character from wherever the cursor happens to
  * sit in text the user never typed; otherwise removes the character just
- * before the cursor, if any.
+ * before the cursor, if any — and if that erases the user's own typed
+ * text down to nothing, brings the suggested default back (so it's never
+ * left showing a bare empty field) rather than leaving `value` empty.
  *
  * @param value - The field's current value.
  * @param cursorOffset - The cursor's current position within `value`.
  * @param isPristine - Whether `value` still equals the currently-shown generated default.
+ * @param dynamicDefault - The currently-shown generated default, to restore to.
  * @returns The resulting value and cursor position.
  */
 export function applyBackspace(
   value: string,
   cursorOffset: number,
   isPristine: boolean,
+  dynamicDefault: string,
 ): EditResult {
   if (isPristine) {
     return { value: '', cursorOffset: 0 };
@@ -228,10 +232,12 @@ export function applyBackspace(
   if (cursorOffset === 0) {
     return { value, cursorOffset };
   }
-  return {
-    value: value.slice(0, cursorOffset - 1) + value.slice(cursorOffset),
-    cursorOffset: cursorOffset - 1,
-  };
+  const nextValue =
+    value.slice(0, cursorOffset - 1) + value.slice(cursorOffset);
+  if (nextValue === '') {
+    return { value: dynamicDefault, cursorOffset: dynamicDefault.length };
+  }
+  return { value: nextValue, cursorOffset: cursorOffset - 1 };
 }
 
 /**
@@ -274,9 +280,16 @@ export type Hint = {
  * i.e. the wizard is about to finish) shows nothing.
  *
  * @param spec - The option spec currently being prompted for, if any.
+ * @param isPristine - For a `generateDefault` spec, whether its field still
+ *   shows the generated default unedited — the `^R` hint only applies (and
+ *   ctrl+r only actually regenerates, see `GeneratedTextInput`) while true;
+ *   ignored for every other spec kind.
  * @returns The hints to show in the status bar, in display order.
  */
-export function hintsFor(spec: OptionSpec | undefined): Hint[] {
+export function hintsFor(
+  spec: OptionSpec | undefined,
+  isPristine = false,
+): Hint[] {
   if (!spec) {
     return [];
   }
@@ -290,6 +303,8 @@ export function hintsFor(spec: OptionSpec | undefined): Hint[] {
 
   return [
     { key: 'Enter', label: 'confirm' },
-    ...(spec.generateDefault ? [{ key: '^R', label: 'new name' }] : []),
+    ...(spec.generateDefault && isPristine
+      ? [{ key: '^R', label: 'new name' }]
+      : []),
   ];
 }

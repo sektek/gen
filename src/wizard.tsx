@@ -72,6 +72,11 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const steps = pendingSpecs(schema, answers);
   const spec = steps[0];
   const done = spec === undefined;
+  // Only meaningful for a `generateDefault` spec: `textValue` is `''` and
+  // `dynamicDefault` is `undefined` for every other spec, so this is always
+  // `false` there too — harmless, since hintsFor()/GeneratedTextInput only
+  // ever consult it for a `generateDefault` spec.
+  const isPristine = textValue === dynamicDefault;
 
   // answers/completed/onComplete are in the deps to avoid a stale closure;
   // the `if (done)` guard makes every earlier re-invocation a no-op.
@@ -162,11 +167,12 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
           setTextValue: changeText,
           advance,
           dynamicDefault,
+          isPristine,
           error,
           onRegenerate: regenerate,
           onGeneratedSubmit: submitGenerated,
         })}
-      {spec && <StatusBar hints={hintsFor(spec)} />}
+      {spec && <StatusBar hints={hintsFor(spec, isPristine)} />}
     </Box>
   );
 }
@@ -196,6 +202,7 @@ type RenderInputArgs = {
   setTextValue: (value: string) => void;
   advance: (value: unknown) => void;
   dynamicDefault: string | undefined;
+  isPristine: boolean;
   error: string | undefined;
   onRegenerate: () => void;
   onGeneratedSubmit: (value: string) => void;
@@ -216,6 +223,7 @@ type RenderInputArgs = {
  * @param args.setTextValue - Updates the text input's current value.
  * @param args.advance - Records the answered value and moves to the next step.
  * @param args.dynamicDefault - The current live-generated default for a `generateDefault` spec.
+ * @param args.isPristine - Whether a `generateDefault` spec's field still shows that default unedited.
  * @param args.error - An inline validation error to show below a `generateDefault` spec's input, if any.
  * @param args.onRegenerate - Requests a fresh generated default for a `generateDefault` spec.
  * @param args.onGeneratedSubmit - Validates and (if valid) records a `generateDefault` spec's answer.
@@ -227,6 +235,7 @@ function renderInput({
   setTextValue,
   advance,
   dynamicDefault,
+  isPristine,
   error,
   onRegenerate,
   onGeneratedSubmit,
@@ -238,7 +247,8 @@ function renderInput({
           <Text>{spec.prompt}: </Text>
           <GeneratedTextInput
             value={textValue}
-            isPristine={textValue === dynamicDefault}
+            isPristine={isPristine}
+            dynamicDefault={dynamicDefault ?? ''}
             onChange={setTextValue}
             onRegenerate={onRegenerate}
             onSubmit={onGeneratedSubmit}
@@ -281,6 +291,7 @@ function renderInput({
 type GeneratedTextInputProps = {
   value: string;
   isPristine: boolean;
+  dynamicDefault: string;
   onChange: (value: string) => void;
   onRegenerate: () => void;
   onSubmit: (value: string) => void;
@@ -291,10 +302,13 @@ type GeneratedTextInputProps = {
  * editable text (the currently-generated default) instead of ghost
  * placeholder text, dimmed while unedited (`isPristine`), plus a ctrl+r
  * hotkey that swaps in a freshly generated value while it's still showing
- * one. The very first edit (a typed character, or backspace/delete) while
- * `isPristine` replaces the whole default outright — typing starts a fresh
- * value from just what was typed, and backspace clears it to empty —
- * rather than editing into the middle of text the user never typed.
+ * one (only while `isPristine` — see `hintsFor()`'s matching rule for the
+ * status bar's `^R` hint). The very first edit (a typed character, or
+ * backspace/delete) while `isPristine` replaces the whole default outright
+ * — typing starts a fresh value from just what was typed, and backspace
+ * clears it to empty — rather than editing into the middle of text the
+ * user never typed; erasing the user's own typed text back down to
+ * nothing brings the suggested default back (see `applyBackspace()`).
  *
  * Deliberately not `<TextInput>` itself: that component only excludes
  * ctrl+c from the keys it inserts as characters (see ink-text-input's own
@@ -305,6 +319,7 @@ type GeneratedTextInputProps = {
  * @param props - The current value/pristine flag, and the change/regenerate/submit callbacks.
  * @param props.value - The input's current (uncommitted) value.
  * @param props.isPristine - Whether `value` still equals the currently-shown generated default.
+ * @param props.dynamicDefault - The currently-shown generated default, restored when the user's own text is erased down to nothing.
  * @param props.onChange - Updates the input's current value.
  * @param props.onRegenerate - Requests a fresh generated default; only actually called while `isPristine`.
  * @param props.onSubmit - Called with the current value on Enter.
@@ -313,6 +328,7 @@ type GeneratedTextInputProps = {
 function GeneratedTextInput({
   value,
   isPristine,
+  dynamicDefault,
   onChange,
   onRegenerate,
   onSubmit,
@@ -349,7 +365,12 @@ function GeneratedTextInput({
       return;
     }
     if (key.backspace || key.delete) {
-      const next = applyBackspace(value, cursorOffset, isPristine);
+      const next = applyBackspace(
+        value,
+        cursorOffset,
+        isPristine,
+        dynamicDefault,
+      );
       onChange(next.value);
       setCursorOffset(next.cursorOffset);
       return;
