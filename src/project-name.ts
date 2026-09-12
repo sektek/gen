@@ -12,22 +12,51 @@ import type { GithubClient } from '@sektek/generator-base';
 const SAFE_PATH_SEGMENT = /^[^/\\]+$/;
 
 /**
+ * Whether `name` is safe to join onto a directory as a single path segment
+ * — used both for the hard guard in `resolveGeneratedDestination` below and
+ * for the wizard's inline validation of a user-typed project name (see
+ * `wizard-steps.ts#projectNameError`), where a graceful rejection is wanted
+ * instead of a thrown error.
+ *
+ * @param name - The candidate name.
+ * @returns Whether `name` is a safe single path segment.
+ */
+export function isSafePathSegment(name: string): boolean {
+  return (
+    name !== '' && name !== '.' && name !== '..' && SAFE_PATH_SEGMENT.test(name)
+  );
+}
+
+/**
  * Throws unless `name` is safe to join onto a directory as a single path
  * segment.
  *
  * @param name - The candidate name from `generateName()`.
  */
 function assertSafePathSegment(name: string): void {
-  if (
-    name === '' ||
-    name === '.' ||
-    name === '..' ||
-    !SAFE_PATH_SEGMENT.test(name)
-  ) {
+  if (!isSafePathSegment(name)) {
     throw new Error(
       `resolveGeneratedDestination(): generateName() returned ${JSON.stringify(name)}, which isn't a safe single path segment.`,
     );
   }
+}
+
+// The key the wizard's synthetic project-name step (see cli.ts) records its
+// answer under. Not a real generator option — cli.ts pulls it back out of
+// the wizard's answers before they're passed to runGenerator, using it only
+// to build destinationRoot.
+export const PROJECT_NAME_KEY = 'projectName';
+
+/**
+ * Dynamically imports `@sektek/generator`'s `randomProjectName`, the default
+ * `generateName()` used both by `resolveGeneratedDestination` and by the
+ * wizard's project-name step (cli.ts) — factored out so both call sites
+ * share one lazy import instead of each re-importing it separately.
+ *
+ * @returns A function producing a fresh `adjective-noun` name each call.
+ */
+export async function loadGenerateProjectName(): Promise<() => string> {
+  return (await import('@sektek/generator/project-name')).randomProjectName;
 }
 
 export type ResolveGeneratedDestinationOptions = {
@@ -61,9 +90,7 @@ export async function resolveGeneratedDestination(
   opts: ResolveGeneratedDestinationOptions,
 ): Promise<string> {
   const maxAttempts = opts.maxAttempts ?? 20;
-  const generateName =
-    opts.generateName ??
-    (await import('@sektek/generator/project-name')).randomProjectName;
+  const generateName = opts.generateName ?? (await loadGenerateProjectName());
   const client = opts.createRepo
     ? (opts.githubClient ??
       (await import('@sektek/generator-base')).defaultGithubClient())

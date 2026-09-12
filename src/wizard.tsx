@@ -1,4 +1,4 @@
-import { Box, Static, Text } from 'ink';
+import { Box, Static, Text, useInput } from 'ink';
 import { useEffect, useState } from 'react';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
@@ -9,6 +9,7 @@ import {
   initialAnswers,
   mergeAnswer,
   pendingSpecs,
+  projectNameError,
 } from './wizard-steps.js';
 import type { OptionSpec } from './schema.js';
 
@@ -24,6 +25,11 @@ export type WizardProps = {
     answers: Record<string, unknown>,
     answeredKeys: string[],
   ) => void;
+  // Only needed when `schema` includes a spec with `generateDefault` (the
+  // project-name step cli.ts adds ahead of the namespace's own schema) —
+  // the directory that name would be created under, for projectNameError()'s
+  // local collision check. Unused by every other spec kind.
+  destCwd?: string;
 };
 
 // Not unit-tested: ink TTY rendering is impractical to exercise outside a
@@ -40,14 +46,19 @@ export type WizardProps = {
  * @param props.onComplete - Called once with the fully-resolved answers,
  *   plus the keys actually prompted for and answered live (excluding any
  *   from `seed` or merely implied by `licenseImpliedAnswers`).
+ * @param props.destCwd - The directory a `generateDefault` project-name answer would be created under.
  * @returns The scrolled-back answers plus the current prompt, or just the
  * scrollback once every step is answered.
  */
-export function Wizard({ schema, seed, onComplete }: WizardProps) {
+export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const [answers, setAnswers] = useState<Record<string, unknown>>(() =>
     initialAnswers(seed, schema),
   );
   const [textValue, setTextValue] = useState('');
+  const [dynamicDefault, setDynamicDefault] = useState<string | undefined>(
+    undefined,
+  );
+  const [error, setError] = useState<string | undefined>(undefined);
   const [completed, setCompleted] = useState<CompletedStep[]>([]);
 
   // Recomputed from live `answers` (not the static `seed` prop) every
@@ -69,6 +80,28 @@ export function Wizard({ schema, seed, onComplete }: WizardProps) {
     }
   }, [done, answers, completed, onComplete]);
 
+  // A step with `generateDefault` starts pre-filled with its current
+  // (already-generated) default as real, editable text, rather than the
+  // ghost placeholder text every other text spec uses — see
+  // GeneratedTextInput. Keyed on `spec?.key` alone, not `spec` itself:
+  // `steps`/`spec` are a new array/object every render, and re-running this
+  // on every render would stomp the field back to its default on each
+  // keystroke instead of only when the step actually changes.
+  useEffect(() => {
+    if (spec?.kind === 'text' && spec.generateDefault) {
+      const initial =
+        spec.default !== undefined
+          ? String(spec.default)
+          : spec.generateDefault();
+      setDynamicDefault(initial);
+      setTextValue(initial);
+    } else {
+      setDynamicDefault(undefined);
+      setTextValue('');
+    }
+    setError(undefined);
+  }, [spec?.key]);
+
   const advance = (value: unknown) => {
     if (!spec) {
       return;
@@ -78,7 +111,35 @@ export function Wizard({ schema, seed, onComplete }: WizardProps) {
       ...prev,
       { key: spec.key, text: `${spec.prompt}: ${displayValue(spec, value)}` },
     ]);
-    setTextValue('');
+  };
+
+  // Validated submit for a `generateDefault` step: rejects (with an inline
+  // error, leaving the step open to retry) an unsafe or already-taken name
+  // instead of advancing — see wizard-steps.ts's projectNameError(). A
+  // GitHub repo-name collision is still left to resolveGeneratedDestination
+  // after the wizard completes, since `createRepo` isn't known yet here.
+  const submitGenerated = (value: string) => {
+    const message =
+      destCwd !== undefined ? projectNameError(value, destCwd) : undefined;
+    if (message) {
+      setError(message);
+      return;
+    }
+    advance(value);
+  };
+
+  const changeText = (value: string) => {
+    setTextValue(value);
+    setError(undefined);
+  };
+
+  const regenerate = () => {
+    if (spec?.kind === 'text' && spec.generateDefault) {
+      const next = spec.generateDefault();
+      setDynamicDefault(next);
+      setTextValue(next);
+      setError(undefined);
+    }
   };
 
   // Same root shape (a <Box> wrapping <Static>) whether or not a step is
@@ -90,7 +151,17 @@ export function Wizard({ schema, seed, onComplete }: WizardProps) {
       <Static items={completed}>
         {item => <Text key={item.key}>{item.text}</Text>}
       </Static>
-      {spec && renderInput(spec, textValue, setTextValue, advance)}
+      {spec &&
+        renderInput({
+          spec,
+          textValue,
+          setTextValue: changeText,
+          advance,
+          dynamicDefault,
+          error,
+          onRegenerate: regenerate,
+          onGeneratedSubmit: submitGenerated,
+        })}
     </Box>
   );
 }
@@ -114,25 +185,66 @@ function displayValue(spec: OptionSpec, value: unknown): string {
   return value === undefined || value === null ? '' : String(value);
 }
 
+type RenderInputArgs = {
+  spec: OptionSpec;
+  textValue: string;
+  setTextValue: (value: string) => void;
+  advance: (value: unknown) => void;
+  dynamicDefault: string | undefined;
+  error: string | undefined;
+  onRegenerate: () => void;
+  onGeneratedSubmit: (value: string) => void;
+};
+
 /**
- * Renders the prompt label plus `<TextInput>` on one row for a `text`
- * spec (the label doubling as the row's leading text, with the schema
- * default shown as ghost placeholder text), or the prompt label above
- * `<SelectInput>` (pre-selected at the schema's default) for
+ * Renders the prompt label plus input for the current step: a
+ * `GeneratedTextInput` row for a `text` spec with `generateDefault`
+ * (pre-filled with the live-generated default, ctrl+r to regenerate — see
+ * that component), a plain `<TextInput>` row for every other `text` spec
+ * (the schema default shown as ghost placeholder text), or the prompt label
+ * above `<SelectInput>` (pre-selected at the schema's default) for
  * `select`/`boolean`.
  *
- * @param spec - The option spec currently being prompted for.
- * @param textValue - The text input's current (uncommitted) value.
- * @param setTextValue - Updates the text input's current value.
- * @param advance - Records the answered value and moves to the next step.
+ * @param args - The current step, plus the wizard-level state/callbacks it needs.
+ * @param args.spec - The option spec currently being prompted for.
+ * @param args.textValue - The text input's current (uncommitted) value.
+ * @param args.setTextValue - Updates the text input's current value.
+ * @param args.advance - Records the answered value and moves to the next step.
+ * @param args.dynamicDefault - The current live-generated default for a `generateDefault` spec.
+ * @param args.error - An inline validation error to show below a `generateDefault` spec's input, if any.
+ * @param args.onRegenerate - Requests a fresh generated default for a `generateDefault` spec.
+ * @param args.onGeneratedSubmit - Validates and (if valid) records a `generateDefault` spec's answer.
  * @returns The prompt + input for this step.
  */
-function renderInput(
-  spec: OptionSpec,
-  textValue: string,
-  setTextValue: (value: string) => void,
-  advance: (value: unknown) => void,
-) {
+function renderInput({
+  spec,
+  textValue,
+  setTextValue,
+  advance,
+  dynamicDefault,
+  error,
+  onRegenerate,
+  onGeneratedSubmit,
+}: RenderInputArgs) {
+  if (spec.kind === 'text' && spec.generateDefault) {
+    return (
+      <Box flexDirection="column">
+        <Box>
+          <Text>{spec.prompt}: </Text>
+          <GeneratedTextInput
+            value={textValue}
+            isPristine={textValue === dynamicDefault}
+            onChange={setTextValue}
+            onRegenerate={onRegenerate}
+            onSubmit={onGeneratedSubmit}
+          />
+        </Box>
+        <Text dimColor>(ctrl+r for a new one)</Text>
+        {error && <Text color="red">{error}</Text>}
+      </Box>
+    );
+  }
+
   if (spec.kind === 'text') {
     return (
       <Box>
@@ -159,5 +271,97 @@ function renderInput(
         onSelect={item => advance(item.value)}
       />
     </Box>
+  );
+}
+
+type GeneratedTextInputProps = {
+  value: string;
+  isPristine: boolean;
+  onChange: (value: string) => void;
+  onRegenerate: () => void;
+  onSubmit: (value: string) => void;
+};
+
+/**
+ * A `<TextInput>`-alike for a `generateDefault` spec: pre-filled with real,
+ * editable text (the currently-generated default) instead of ghost
+ * placeholder text, plus a ctrl+r hotkey that swaps in a freshly generated
+ * value while the field still shows one unedited (`isPristine`).
+ *
+ * Deliberately not `<TextInput>` itself: that component only excludes
+ * ctrl+c from the keys it inserts as characters (see ink-text-input's own
+ * source), so a bare ctrl+r would fall through to its "insert this
+ * character" branch and type a literal 'r' into the field. This component
+ * filters out every ctrl/meta combo before it ever reaches the buffer.
+ *
+ * @param props - The current value/pristine flag, and the change/regenerate/submit callbacks.
+ * @param props.value - The input's current (uncommitted) value.
+ * @param props.isPristine - Whether `value` still equals the currently-shown generated default.
+ * @param props.onChange - Updates the input's current value.
+ * @param props.onRegenerate - Requests a fresh generated default; only actually called while `isPristine`.
+ * @param props.onSubmit - Called with the current value on Enter.
+ * @returns The rendered input row.
+ */
+function GeneratedTextInput({
+  value,
+  isPristine,
+  onChange,
+  onRegenerate,
+  onSubmit,
+}: GeneratedTextInputProps) {
+  const [cursorOffset, setCursorOffset] = useState(value.length);
+
+  // Keeps the cursor in bounds when `value` changes out from under us (a
+  // ctrl+r regenerate, or a step transition), mirroring ink-text-input's own
+  // clamping effect for its `value` prop.
+  useEffect(() => {
+    setCursorOffset(offset => Math.min(offset, value.length));
+  }, [value]);
+
+  useInput((input, key) => {
+    if (key.ctrl && input === 'r') {
+      if (isPristine) {
+        onRegenerate();
+      }
+      return;
+    }
+    if (key.ctrl || key.meta || key.tab) {
+      return;
+    }
+    if (key.return) {
+      onSubmit(value);
+      return;
+    }
+    if (key.leftArrow) {
+      setCursorOffset(offset => Math.max(0, offset - 1));
+      return;
+    }
+    if (key.rightArrow) {
+      setCursorOffset(offset => Math.min(value.length, offset + 1));
+      return;
+    }
+    if (key.backspace || key.delete) {
+      if (cursorOffset > 0) {
+        onChange(value.slice(0, cursorOffset - 1) + value.slice(cursorOffset));
+        setCursorOffset(offset => offset - 1);
+      }
+      return;
+    }
+    if (input) {
+      onChange(
+        value.slice(0, cursorOffset) + input + value.slice(cursorOffset),
+      );
+      setCursorOffset(offset => offset + input.length);
+    }
+  });
+
+  return (
+    <Text>
+      {value.slice(0, cursorOffset)}
+      <Text inverse>
+        {cursorOffset < value.length ? value[cursorOffset] : ' '}
+      </Text>
+      {value.slice(cursorOffset + 1)}
+    </Text>
   );
 }
