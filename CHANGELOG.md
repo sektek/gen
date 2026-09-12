@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0](https://github.com/sektek/gen/compare/v0.6.0...v0.7.0) (2026-09-12)
+
+### Features
+
+* pre-fill and ctrl+r-regenerate the wizard's project name step ([#10](https://github.com/sektek/gen/issues/10)) ([c22f01c](https://github.com/sektek/gen/commit/c22f01c5fcd5f782c8448170b56dbf652c1c2ea3))
+
 ## [0.6.0](https://github.com/sektek/gen/compare/v0.5.0...v0.6.0) (2026-09-12)
 
 ### Features
