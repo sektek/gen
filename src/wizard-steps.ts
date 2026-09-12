@@ -96,12 +96,123 @@ export function licenseImpliedAnswers(
   return implied;
 }
 
+// The github-repo-detail keys that only ever matter once `createRepo` is
+// true — gated behind `options.createRepo` in generator-base's own
+// `github`/index.ts, so a skipped/declined `createRepo` makes every one of
+// these irrelevant.
+const GITHUB_DETAIL_KEYS = [
+  'repoVisibility',
+  'repoOwner',
+  'githubToken',
+  'push',
+];
+
 /**
- * The wizard's starting answers: `seed` plus whatever `licenseImpliedAnswers`
- * derives from `seed.license`. `seed` always wins over an implied value —
- * an explicit conflicting seed (e.g. `--no-private` alongside
- * `--license UNLICENSED`) must survive here, or `applyLicenseImplications`
- * downstream never sees the conflict to warn about.
+ * Forces `keysToImply` (whichever are actually present in `schema`) to
+ * that spec's own declared `default` — the neutral "as if never asked"
+ * value, not some fixed sentinel — so a skipped step still resolves to
+ * something consistent with what `resolve()` would have produced for a
+ * non-interactive run that never touched these flags at all.
+ *
+ * @param keysToImply - The option keys to force to their schema default.
+ * @param schema - The full option schema for the namespace being run.
+ * @returns The implied answers, one entry per key actually found in `schema`.
+ */
+function impliedDefaultsFor(
+  keysToImply: readonly string[],
+  schema: OptionSpec[],
+): Record<string, unknown> {
+  const bySpecKey = new Map(schema.map(spec => [spec.key, spec]));
+  const implied: Record<string, unknown> = {};
+  for (const key of keysToImply) {
+    const spec = bySpecKey.get(key);
+    if (spec) {
+      implied[key] = spec.default;
+    }
+  }
+  return implied;
+}
+
+/**
+ * The extra answers implied by answering `createRepo` as `false`:
+ * `repoVisibility`/`repoOwner`/`githubToken`/`push` (whichever are present
+ * in `schema`) forced to their own default — none of them mean anything
+ * once no repo is being created, so the wizard shouldn't ask.
+ *
+ * @param createRepo - The value answered (or pre-seeded) for `createRepo`.
+ * @param schema - The full option schema for the namespace being run.
+ * @returns The implied answers to merge in immediately, or `{}` if `createRepo`
+ *   isn't `false`.
+ */
+export function createRepoImpliedAnswers(
+  createRepo: unknown,
+  schema: OptionSpec[],
+): Record<string, unknown> {
+  return createRepo === false
+    ? impliedDefaultsFor(GITHUB_DETAIL_KEYS, schema)
+    : {};
+}
+
+/**
+ * The extra answers implied by answering `gitInit` as `false`: the entire
+ * GitHub block — `createRepo` itself, plus every key
+ * {@link createRepoImpliedAnswers} would already imply once `createRepo` is
+ * `false` — forced to its own default. Declining a local git repo makes
+ * creating *and pushing to* a GitHub remote impossible, not just
+ * unconfigured, so this skips past `createRepo`'s own question too rather
+ * than just the details behind it.
+ *
+ * @param gitInit - The value answered (or pre-seeded) for `gitInit`.
+ * @param schema - The full option schema for the namespace being run.
+ * @returns The implied answers to merge in immediately, or `{}` if `gitInit`
+ *   isn't `false`.
+ */
+export function gitInitImpliedAnswers(
+  gitInit: unknown,
+  schema: OptionSpec[],
+): Record<string, unknown> {
+  return gitInit === false
+    ? impliedDefaultsFor(['createRepo', ...GITHUB_DETAIL_KEYS], schema)
+    : {};
+}
+
+/**
+ * Every implied-answers rule keyed by the option that triggers it — shared
+ * by `initialAnswers` and `mergeAnswer` so the two stay in sync. `gitInit`
+ * is listed ahead of `createRepo`: `gitInit` already implies `createRepo`'s
+ * own value, and schema order asks `gitInit` first, so by the time
+ * `createRepo` could otherwise be answered, `gitInitImpliedAnswers` has
+ * already made the question moot.
+ *
+ * @param key - The option key just answered (or seeded).
+ * @param value - The value just answered (or seeded) for `key`.
+ * @param schema - The full option schema for the namespace being run.
+ * @returns The implied answers for `key`, or `{}` if `key` implies nothing.
+ */
+function impliedAnswersFor(
+  key: string,
+  value: unknown,
+  schema: OptionSpec[],
+): Record<string, unknown> {
+  switch (key) {
+    case 'license':
+      return licenseImpliedAnswers(value, schema);
+    case 'gitInit':
+      return gitInitImpliedAnswers(value, schema);
+    case 'createRepo':
+      return createRepoImpliedAnswers(value, schema);
+    default:
+      return {};
+  }
+}
+
+/**
+ * The wizard's starting answers: `seed` plus whatever each of `seed`'s own
+ * keys implies (see `impliedAnswersFor`). `seed` always wins over an
+ * implied value — an explicit conflicting seed (e.g. `--no-private`
+ * alongside `--license UNLICENSED`) must survive here, or
+ * `applyLicenseImplications` downstream never sees the conflict to warn
+ * about.
  *
  * @param seed - Option values already supplied (e.g. via CLI flags).
  * @param schema - The full option schema for the namespace being run.
@@ -111,15 +222,20 @@ export function initialAnswers(
   seed: Record<string, unknown>,
   schema: OptionSpec[],
 ): Record<string, unknown> {
-  return { ...licenseImpliedAnswers(seed.license, schema), ...seed };
+  return {
+    ...impliedAnswersFor('license', seed.license, schema),
+    ...impliedAnswersFor('gitInit', seed.gitInit, schema),
+    ...impliedAnswersFor('createRepo', seed.createRepo, schema),
+    ...seed,
+  };
 }
 
 /**
- * Folds a just-answered value into the wizard's running answers, plus (for
- * `key === 'license'`) whatever it implies. Implied values only fill gaps
- * — `prev` and the value just given always win — for the same reason
- * `initialAnswers` favors `seed`: a real conflict must stay visible for
- * `applyLicenseImplications` to report, not get silently absorbed.
+ * Folds a just-answered value into the wizard's running answers, plus
+ * whatever `key` implies (see `impliedAnswersFor`). Implied values only
+ * fill gaps — `prev` and the value just given always win — for the same
+ * reason `initialAnswers` favors `seed`: a real conflict must stay visible
+ * for `applyLicenseImplications` to report, not get silently absorbed.
  *
  * @param prev - The answers accumulated so far.
  * @param key - The option key just answered.
@@ -133,7 +249,7 @@ export function mergeAnswer(
   value: unknown,
   schema: OptionSpec[],
 ): Record<string, unknown> {
-  const implied = key === 'license' ? licenseImpliedAnswers(value, schema) : {};
+  const implied = impliedAnswersFor(key, value, schema);
   return { ...implied, ...prev, [key]: value };
 }
 
