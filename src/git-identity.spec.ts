@@ -2,6 +2,7 @@ import { expect } from 'chai';
 
 import {
   deriveAuthorFromGitConfig,
+  resetGitConfigReaderForTesting,
   setGitConfigReaderForTesting,
 } from './git-identity.js';
 
@@ -17,10 +18,7 @@ function stubGitConfig(values: Record<string, string>) {
 
 describe('git-identity', function () {
   afterEach(function () {
-    // Resets to a no-op reader rather than the real CLI-backed one, so no
-    // spec here ever depends on (or is broken by) whatever git identity
-    // happens to be configured in the environment actually running tests.
-    setGitConfigReaderForTesting(async () => undefined);
+    resetGitConfigReaderForTesting();
   });
 
   describe('deriveAuthorFromGitConfig', function () {

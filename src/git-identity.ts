@@ -60,4 +60,12 @@ export function setGitConfigReaderForTesting(
   reader = testReader;
 }
 
+/**
+ * Test-only escape hatch: restores the real, CLI-backed reader after a
+ * spec is done installing its own.
+ */
+export function resetGitConfigReaderForTesting(): void {
+  reader = readGitConfigFromCli;
+}
+
 export default deriveAuthorFromGitConfig;
