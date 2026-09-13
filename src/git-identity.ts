@@ -50,8 +50,7 @@ export async function deriveAuthorFromGitConfig(): Promise<string | undefined> {
 
 /**
  * Test-only escape hatch: swaps the reader `deriveAuthorFromGitConfig`
- * uses, so specs can avoid shelling out to the real `git` CLI — mirrors
- * `version-resolver.ts`'s `setVersionResolverForTesting`.
+ * uses, so specs can avoid shelling out to the real `git` CLI.
  *
  * @param testReader - The stand-in reader to install.
  */
