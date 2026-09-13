@@ -238,30 +238,29 @@ async function buildProjectNameSpec(): Promise<OptionSpec> {
  *
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @param flagsGiven - Option values already supplied via CLI flags.
+ * @param configDefaults - Values resolved via `resolveConfigDefaults()`.
  * @returns A one-entry `extraSpecs` array for `resolve()`, or `[]` when
  *   irrelevant (a non-js namespace, or `--package-scope` already given).
  */
 async function packageScopeExtraSpecs(
   namespace: string,
   flagsGiven: Record<string, unknown>,
+  configDefaults: Record<string, unknown>,
 ): Promise<OptionSpec[]> {
+  const merged = { ...configDefaults, ...flagsGiven };
   if (
     !namespace.startsWith('@sektek/js:') ||
-    flagsGiven.packageScope !== undefined
+    merged.packageScope !== undefined
   ) {
     return [];
   }
 
   const packageScope = await resolvePackageScopeDefault({
-    createRepo: flagsGiven.createRepo === true,
+    createRepo: merged.createRepo === true,
     repoOwner:
-      typeof flagsGiven.repoOwner === 'string'
-        ? flagsGiven.repoOwner
-        : undefined,
+      typeof merged.repoOwner === 'string' ? merged.repoOwner : undefined,
     githubToken:
-      typeof flagsGiven.githubToken === 'string'
-        ? flagsGiven.githubToken
-        : undefined,
+      typeof merged.githubToken === 'string' ? merged.githubToken : undefined,
   });
 
   // generateDefaultAsync comes along for the ride; harmless, since
@@ -318,7 +317,7 @@ async function resolveAnswers({
         namespace,
         flagsGiven,
         configDefaults,
-        await packageScopeExtraSpecs(namespace, flagsGiven),
+        await packageScopeExtraSpecs(namespace, flagsGiven, configDefaults),
       ),
       explicitOptionKeys: Object.keys(flagsGiven),
       chosenProjectName: undefined,

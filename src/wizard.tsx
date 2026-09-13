@@ -63,10 +63,14 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const [dynamicDefault, setDynamicDefault] = useState<string | undefined>(
     undefined,
   );
-  // True while a generateDefaultAsync default is still pending; renderInput
-  // shows a "resolving" line instead of mounting GeneratedTextInput until
-  // then, so a keystroke can't land before there's a value to edit.
-  const [resolving, setResolving] = useState(false);
+  // Which spec's generateDefaultAsync has actually resolved so far — not a
+  // plain `resolving` boolean, since that would only ever get set to `true`
+  // by the effect below, which runs *after* the render that first shows the
+  // new `spec`: for one render right after advancing into an async step,
+  // a boolean would still hold the previous step's value, mounting
+  // GeneratedTextInput early with stale text. Comparing keys instead is
+  // correct starting from the very first render of the new step.
+  const [resolvedKey, setResolvedKey] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [completed, setCompleted] = useState<CompletedStep[]>([]);
 
@@ -77,6 +81,11 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const steps = pendingSpecs(schema, answers);
   const spec = steps[0];
   const done = spec === undefined;
+  const resolving = Boolean(
+    spec?.kind === 'text' &&
+    spec.generateDefaultAsync &&
+    resolvedKey !== spec.key,
+  );
   const isPristine = textValue === dynamicDefault;
 
   // answers/completed/onComplete are in the deps to avoid a stale closure;
@@ -105,19 +114,26 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
         spec.default !== undefined
           ? String(spec.default)
           : spec.generateDefault();
-      setResolving(false);
       setDynamicDefault(initial);
       setTextValue(initial);
       return;
     }
 
     if (spec?.kind === 'text' && spec.generateDefaultAsync) {
+      if (spec.default !== undefined) {
+        const initial = String(spec.default);
+        setResolvedKey(spec.key);
+        setDynamicDefault(initial);
+        setTextValue(initial);
+        return;
+      }
+
       let cancelled = false;
-      setResolving(true);
       setDynamicDefault(undefined);
       setTextValue('');
 
       const resolveAsyncDefault = async (
+        key: string,
         generateDefaultAsync: (
           answers: Record<string, unknown>,
         ) => Promise<string>,
@@ -126,18 +142,17 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
         if (cancelled) {
           return;
         }
-        setResolving(false);
+        setResolvedKey(key);
         setDynamicDefault(initial);
         setTextValue(initial);
       };
-      void resolveAsyncDefault(spec.generateDefaultAsync);
+      void resolveAsyncDefault(spec.key, spec.generateDefaultAsync);
 
       return () => {
         cancelled = true;
       };
     }
 
-    setResolving(false);
     setDynamicDefault(undefined);
     setTextValue('');
     // `answers` is read here but deliberately not a dependency — only this
@@ -207,7 +222,7 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
           onRegenerate: regenerate,
           onGeneratedSubmit: submitGenerated,
         })}
-      {spec && <StatusBar hints={hintsFor(spec, isPristine)} />}
+      {spec && !resolving && <StatusBar hints={hintsFor(spec, isPristine)} />}
     </Box>
   );
 }
