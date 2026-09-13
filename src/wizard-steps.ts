@@ -441,10 +441,12 @@ export type Hint = {
  * i.e. the wizard is about to finish) shows nothing.
  *
  * @param spec - The option spec currently being prompted for, if any.
- * @param isPristine - For a `generateDefault` spec, whether its field still
- *   shows the generated default unedited — the `^R` hint only applies (and
- *   ctrl+r only actually regenerates, see `GeneratedTextInput`) while true;
- *   ignored for every other spec kind.
+ * @param isPristine - For a `generateDefault`/`generateDefaultAsync` spec,
+ *   whether its field still shows the generated default unedited — the `^R`
+ *   hint only applies (and ctrl+r only actually regenerates, see
+ *   `GeneratedTextInput`) while true, and likewise for `^X`
+ *   (`allowClear`, ctrl+x) clearing to an empty value; ignored for every
+ *   other spec kind.
  * @returns The hints to show in the status bar, in display order.
  */
 export function hintsFor(
@@ -467,5 +469,6 @@ export function hintsFor(
     ...(spec.generateDefault && isPristine
       ? [{ key: '^R', label: 'new name' }]
       : []),
+    ...(spec.allowClear && isPristine ? [{ key: '^X', label: 'clear' }] : []),
   ];
 }

@@ -1,3 +1,5 @@
+import { resolvePackageScopeDefault } from './package-scope.js';
+
 export type OptionKind = 'text' | 'boolean' | 'select' | 'list';
 
 export type OptionSpec = {
@@ -35,6 +37,20 @@ export type OptionSpec = {
   // GeneratedTextInput. Not used outside the wizard: `resolve()` (the
   // non-interactive path) only ever reads the static `default`.
   generateDefault?: () => string;
+  // 'text' specs only, mutually exclusive with generateDefault. Same idea
+  // but async and given the answers collected so far in this run, for a
+  // default that depends on an earlier answer. No ctrl+r "regenerate" —
+  // the derivation is deterministic given the same answers — only
+  // whatever `allowClear` opts into. Unlike generateDefault, `resolve()`
+  // (the non-interactive path) needs an equivalent too — see cli.ts's
+  // `resolveAnswers`, which resolves the same derivation eagerly.
+  generateDefaultAsync?: (answers: Record<string, unknown>) => Promise<string>;
+  // 'text' specs with generateDefault or generateDefaultAsync only.
+  // Whether ctrl+x clears the field to '' outright, distinct from
+  // generateDefault's own ctrl+r "regenerate". Only fires while the field
+  // still shows the derived default unedited (isPristine), same as ctrl+r
+  // — see wizard-steps.ts's hintsFor() and wizard.tsx's GeneratedTextInput.
+  allowClear?: boolean;
 };
 
 // Options every generator understands, since CoreGenerator applies these
@@ -79,13 +95,6 @@ export const JS_OPTIONS: OptionSpec[] = [
     kind: 'select',
     choices: ['mocha', 'vitest', 'none'],
     default: 'mocha',
-  },
-  {
-    key: 'packageScope',
-    flag: '--package-scope <value>',
-    prompt: 'npm scope',
-    kind: 'text',
-    default: 'sektek',
   },
   {
     key: 'author',
@@ -203,6 +212,29 @@ export const GITHUB_OPTIONS: OptionSpec[] = [
   },
 ];
 
+// The npm-scope option for the @sektek/js:* generator family — its own
+// array, positioned in schemaFor() *after* GITHUB_OPTIONS rather than
+// grouped into JS_OPTIONS, since its default depends on those answers.
+export const PACKAGE_SCOPE_OPTIONS: OptionSpec[] = [
+  {
+    key: 'packageScope',
+    flag: '--package-scope <value>',
+    prompt: 'npm scope',
+    kind: 'text',
+    allowClear: true,
+    generateDefaultAsync: answers =>
+      resolvePackageScopeDefault({
+        createRepo: answers.createRepo === true,
+        repoOwner:
+          typeof answers.repoOwner === 'string' ? answers.repoOwner : undefined,
+        githubToken:
+          typeof answers.githubToken === 'string'
+            ? answers.githubToken
+            : undefined,
+      }),
+  },
+];
+
 // Options for the `config` sub-generator. Reachable from both
 // @sektek/base:app and (transitively) @sektek/js:app, so merged into both
 // schemaFor() branches below.
@@ -236,6 +268,7 @@ export function schemaFor(namespace: string): OptionSpec[] {
         ...DEPENDENCY_OPTIONS,
         ...GIT_OPTIONS,
         ...GITHUB_OPTIONS,
+        ...PACKAGE_SCOPE_OPTIONS,
         ...CONFIG_OPTIONS,
       ]
     : [...CORE_OPTIONS, ...GIT_OPTIONS, ...GITHUB_OPTIONS, ...CONFIG_OPTIONS];

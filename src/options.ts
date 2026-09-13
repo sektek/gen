@@ -149,7 +149,10 @@ export function flagsGivenFor(
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @param flagsGiven - Option values already supplied (CLI flags or wizard answers).
  * @param configDefaults - Values resolved via `resolveConfigDefaults()`.
- * @param extraSpecs - Specs layered on top of `schemaFor(namespace)`, for tests.
+ * @param extraSpecs - Specs layered on top of `schemaFor(namespace)` — used
+ *   by tests, and by cli.ts's automated-path `packageScopeExtraSpecs()` to
+ *   fold in an eagerly-resolved dynamic default the same way a real schema
+ *   default would apply.
  * @returns The fully-resolved options object.
  */
 export function resolve(

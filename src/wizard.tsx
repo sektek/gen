@@ -65,6 +65,14 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const [dynamicDefault, setDynamicDefault] = useState<string | undefined>(
     undefined,
   );
+  // Which spec's generateDefaultAsync has actually resolved so far — not a
+  // plain `resolving` boolean, since that would only ever get set to `true`
+  // by the effect below, which runs *after* the render that first shows the
+  // new `spec`: for one render right after advancing into an async step,
+  // a boolean would still hold the previous step's value, mounting
+  // GeneratedTextInput early with stale text. Comparing keys instead is
+  // correct starting from the very first render of the new step.
+  const [resolvedKey, setResolvedKey] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | undefined>(undefined);
   const [completed, setCompleted] = useState<CompletedStep[]>([]);
 
@@ -75,10 +83,11 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const steps = pendingSpecs(schema, answers);
   const spec = steps[0];
   const done = spec === undefined;
-  // Only meaningful for a `generateDefault` spec: `textValue` is `''` and
-  // `dynamicDefault` is `undefined` for every other spec, so this is always
-  // `false` there too — harmless, since hintsFor()/GeneratedTextInput only
-  // ever consult it for a `generateDefault` spec.
+  const resolving = Boolean(
+    spec?.kind === 'text' &&
+    spec.generateDefaultAsync &&
+    resolvedKey !== spec.key,
+  );
   const isPristine = textValue === dynamicDefault;
 
   // answers/completed/onComplete are in the deps to avoid a stale closure;
@@ -100,6 +109,8 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   // on every render would stomp the field back to its default on each
   // keystroke instead of only when the step actually changes.
   useEffect(() => {
+    setError(undefined);
+
     if (spec?.kind === 'text' && spec.generateDefault) {
       const initial =
         spec.default !== undefined
@@ -107,11 +118,48 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
           : spec.generateDefault();
       setDynamicDefault(initial);
       setTextValue(initial);
-    } else {
+      return;
+    }
+
+    if (spec?.kind === 'text' && spec.generateDefaultAsync) {
+      if (spec.default !== undefined) {
+        const initial = String(spec.default);
+        setResolvedKey(spec.key);
+        setDynamicDefault(initial);
+        setTextValue(initial);
+        return;
+      }
+
+      let cancelled = false;
       setDynamicDefault(undefined);
       setTextValue('');
+
+      const resolveAsyncDefault = async (
+        key: string,
+        generateDefaultAsync: (
+          answers: Record<string, unknown>,
+        ) => Promise<string>,
+      ) => {
+        const initial = await generateDefaultAsync(answers);
+        if (cancelled) {
+          return;
+        }
+        setResolvedKey(key);
+        setDynamicDefault(initial);
+        setTextValue(initial);
+      };
+      void resolveAsyncDefault(spec.key, spec.generateDefaultAsync);
+
+      return () => {
+        cancelled = true;
+      };
     }
-    setError(undefined);
+
+    setDynamicDefault(undefined);
+    setTextValue('');
+    // `answers` is read here but deliberately not a dependency — only this
+    // step's snapshot is wanted; adding it would re-trigger the network
+    // call on every subsequent answer.
   }, [spec?.key]);
 
   const advance = (value: unknown) => {
@@ -171,11 +219,12 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
           advance,
           dynamicDefault,
           isPristine,
+          resolving,
           error,
           onRegenerate: regenerate,
           onGeneratedSubmit: submitGenerated,
         })}
-      {spec && <StatusBar hints={hintsFor(spec, isPristine)} />}
+      {spec && !resolving && <StatusBar hints={hintsFor(spec, isPristine)} />}
     </Box>
   );
 }
@@ -206,6 +255,7 @@ type RenderInputArgs = {
   advance: (value: unknown) => void;
   dynamicDefault: string | undefined;
   isPristine: boolean;
+  resolving: boolean;
   error: string | undefined;
   onRegenerate: () => void;
   onGeneratedSubmit: (value: string) => void;
@@ -213,11 +263,10 @@ type RenderInputArgs = {
 
 /**
  * Renders the prompt label plus input for the current step: a
- * `GeneratedTextInput` row for a `text` spec with `generateDefault`
- * (pre-filled with the live-generated default, ctrl+r to regenerate — see
- * that component), a plain `<TextInput>` row for every other `text` spec
- * (the schema default shown as ghost placeholder text), or the prompt label
- * above `<SelectInput>` (pre-selected at the schema's default) for
+ * "Resolving…" line while a `generateDefaultAsync` default is still
+ * pending, a `GeneratedTextInput` row for `generateDefault`/
+ * `generateDefaultAsync` specs, a plain `<TextInput>` row for every other
+ * `text` spec, or the prompt label above `<SelectInput>` for
  * `select`/`boolean`.
  *
  * @param args - The current step, plus the wizard-level state/callbacks it needs.
@@ -225,8 +274,9 @@ type RenderInputArgs = {
  * @param args.textValue - The text input's current (uncommitted) value.
  * @param args.setTextValue - Updates the text input's current value.
  * @param args.advance - Records the answered value and moves to the next step.
- * @param args.dynamicDefault - The current live-generated default for a `generateDefault` spec.
- * @param args.isPristine - Whether a `generateDefault` spec's field still shows that default unedited.
+ * @param args.dynamicDefault - The current live-generated default, if any.
+ * @param args.isPristine - Whether such a spec's field still shows that default unedited.
+ * @param args.resolving - Whether a `generateDefaultAsync` default is still resolving.
  * @param args.error - An inline validation error to show below a `generateDefault` spec's input, if any.
  * @param args.onRegenerate - Requests a fresh generated default for a `generateDefault` spec.
  * @param args.onGeneratedSubmit - Validates and (if valid) records a `generateDefault` spec's answer.
@@ -239,11 +289,26 @@ function renderInput({
   advance,
   dynamicDefault,
   isPristine,
+  resolving,
   error,
   onRegenerate,
   onGeneratedSubmit,
 }: RenderInputArgs) {
-  if (spec.kind === 'text' && spec.generateDefault) {
+  if (spec.kind === 'text' && spec.generateDefaultAsync && resolving) {
+    return (
+      <Box>
+        <Text dimColor>{spec.prompt}: Resolving…</Text>
+      </Box>
+    );
+  }
+
+  if (
+    spec.kind === 'text' &&
+    (spec.generateDefault || spec.generateDefaultAsync)
+  ) {
+    // Only generateDefault (the project-name step) needs projectNameError's
+    // filesystem-safety validation on submit.
+    const onSubmit = spec.generateDefault ? onGeneratedSubmit : advance;
     return (
       <Box flexDirection="column">
         <Box>
@@ -252,9 +317,10 @@ function renderInput({
             value={textValue}
             isPristine={isPristine}
             dynamicDefault={dynamicDefault ?? ''}
+            allowClear={Boolean(spec.allowClear)}
             onChange={setTextValue}
             onRegenerate={onRegenerate}
-            onSubmit={onGeneratedSubmit}
+            onSubmit={onSubmit}
           />
         </Box>
         {error && <Text color="red">{error}</Text>}
@@ -307,16 +373,19 @@ type GeneratedTextInputProps = {
   value: string;
   isPristine: boolean;
   dynamicDefault: string;
+  // Whether ctrl+x clears the field to '' outright.
+  allowClear: boolean;
   onChange: (value: string) => void;
   onRegenerate: () => void;
   onSubmit: (value: string) => void;
 };
 
 /**
- * A `<TextInput>`-alike for a `generateDefault` spec: pre-filled with real,
- * editable text (the currently-generated default) instead of ghost
- * placeholder text, dimmed while unedited (`isPristine`), plus a ctrl+r
- * hotkey that swaps in a freshly generated value while it's still showing
+ * A `<TextInput>`-alike for a `generateDefault`/`generateDefaultAsync`
+ * spec: pre-filled with real, editable text (the currently-generated
+ * default) instead of ghost placeholder text, dimmed while unedited
+ * (`isPristine`), plus a ctrl+r hotkey that swaps in a freshly generated
+ * value while it's still showing
  * one (only while `isPristine` — see `hintsFor()`'s matching rule for the
  * status bar's `^R` hint). The very first edit (a typed character, or
  * backspace/delete) while `isPristine` replaces the whole default outright
@@ -327,14 +396,16 @@ type GeneratedTextInputProps = {
  *
  * Deliberately not `<TextInput>` itself: that component only excludes
  * ctrl+c from the keys it inserts as characters (see ink-text-input's own
- * source), so a bare ctrl+r would fall through to its "insert this
- * character" branch and type a literal 'r' into the field. This component
- * filters out every ctrl/meta combo before it ever reaches the buffer.
+ * source), so a bare ctrl+r/ctrl+x would fall through to its "insert this
+ * character" branch and type a literal 'r'/'x' into the field. This
+ * component filters out every ctrl/meta combo before it ever reaches the
+ * buffer.
  *
  * @param props - The current value/pristine flag, and the change/regenerate/submit callbacks.
  * @param props.value - The input's current (uncommitted) value.
  * @param props.isPristine - Whether `value` still equals the currently-shown generated default.
  * @param props.dynamicDefault - The currently-shown generated default, restored when the user's own text is erased down to nothing.
+ * @param props.allowClear - Whether ctrl+x clears the field; ignored otherwise.
  * @param props.onChange - Updates the input's current value.
  * @param props.onRegenerate - Requests a fresh generated default; only actually called while `isPristine`.
  * @param props.onSubmit - Called with the current value on Enter.
@@ -344,6 +415,7 @@ function GeneratedTextInput({
   value,
   isPristine,
   dynamicDefault,
+  allowClear,
   onChange,
   onRegenerate,
   onSubmit,
@@ -382,6 +454,14 @@ function GeneratedTextInput({
     if (key.ctrl && input === 'r') {
       if (isPristine) {
         onRegenerate();
+      }
+      return;
+    }
+    if (key.ctrl && input === 'x') {
+      if (allowClear && isPristine) {
+        ownChangeRef.current = true;
+        onChange('');
+        setCursorOffset(0);
       }
       return;
     }

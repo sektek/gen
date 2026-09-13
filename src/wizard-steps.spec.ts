@@ -591,6 +591,11 @@ describe('wizard-steps', function () {
       ...textSpec,
       generateDefault: () => 'brave-otter',
     };
+    const clearableAsyncTextSpec: OptionSpec = {
+      ...textSpec,
+      allowClear: true,
+      generateDefaultAsync: async () => 'acme',
+    };
 
     it('returns nothing once every step is answered', function () {
       expect(hintsFor(undefined)).to.deep.equal([]);
@@ -618,6 +623,26 @@ describe('wizard-steps', function () {
     it('defaults to omitting the ^R hint when isPristine is not given', function () {
       expect(hintsFor(generatedTextSpec)).to.deep.equal([
         { key: 'Enter', label: 'confirm' },
+      ]);
+    });
+
+    it('adds a ^X hint for an allowClear spec while pristine', function () {
+      expect(hintsFor(clearableAsyncTextSpec, true)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+        { key: '^X', label: 'clear' },
+      ]);
+    });
+
+    it('omits the ^X hint for an allowClear spec once edited', function () {
+      expect(hintsFor(clearableAsyncTextSpec, false)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+      ]);
+    });
+
+    it('omits the ^X hint for a generateDefault spec that does not allow clearing', function () {
+      expect(hintsFor(generatedTextSpec, true)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+        { key: '^R', label: 'new name' },
       ]);
     });
 

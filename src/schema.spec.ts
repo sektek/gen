@@ -1,6 +1,9 @@
-import { expect } from 'chai';
+import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 
 import { type OptionSpec, schemaFor, withConfigDefaults } from './schema.js';
+
+use(chaiAsPromised);
 
 describe('schema', function () {
   describe('withConfigDefaults', function () {
@@ -104,6 +107,60 @@ describe('schema', function () {
       expect(result.find(spec => spec.key === 'dependencies')).to.be.undefined;
       expect(result.find(spec => spec.key === 'devDependencies')).to.be
         .undefined;
+    });
+
+    it('positions packageScope after every GITHUB_OPTIONS key for @sektek/js:* namespaces', function () {
+      const result = schemaFor('@sektek/js:app');
+      const keys = result.map(spec => spec.key);
+
+      const githubKeys = [
+        'createRepo',
+        'repoVisibility',
+        'repoOwner',
+        'githubToken',
+        'push',
+      ];
+      const lastGithubIndex = Math.max(
+        ...githubKeys.map(key => keys.indexOf(key)),
+      );
+
+      expect(lastGithubIndex).to.be.greaterThan(-1);
+      expect(keys.indexOf('packageScope')).to.be.greaterThan(lastGithubIndex);
+    });
+
+    it('gives packageScope no static default, only an async one', function () {
+      const spec = schemaFor('@sektek/js:app').find(
+        s => s.key === 'packageScope',
+      );
+
+      expect(spec?.default).to.be.undefined;
+      expect(spec?.generateDefaultAsync).to.be.a('function');
+      expect(spec?.allowClear).to.be.true;
+    });
+
+    it('does not include packageScope for non-@sektek/js:* namespaces', function () {
+      const result = schemaFor('@sektek/base:app');
+
+      expect(result.find(spec => spec.key === 'packageScope')).to.be.undefined;
+    });
+
+    describe("packageScope's generateDefaultAsync", function () {
+      // Only the two branches resolvePackageScopeDefault() answers without
+      // touching a GitHub client at all — its own spec (package-scope.spec.ts)
+      // covers every branch, including the network ones, via DI; this just
+      // confirms the wizard's live `answers` are actually threaded through.
+      const spec = () =>
+        schemaFor('@sektek/js:app').find(s => s.key === 'packageScope')!;
+
+      it('resolves to an empty scope when createRepo is not answered true', async function () {
+        await expect(spec().generateDefaultAsync!({})).to.eventually.equal('');
+      });
+
+      it('passes a given repoOwner through as-is', async function () {
+        await expect(
+          spec().generateDefaultAsync!({ createRepo: true, repoOwner: 'acme' }),
+        ).to.eventually.equal('acme');
+      });
     });
   });
 });
