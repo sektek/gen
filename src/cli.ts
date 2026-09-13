@@ -15,6 +15,7 @@ import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
 import { REGISTRY } from './registry.js';
 import { applyGitInitImplications } from './git-init-implications.js';
 import { applyLicenseImplications } from './license-implications.js';
+import { deriveAuthorFromGitConfig } from './git-identity.js';
 import { explicitOptionKeysFromWizard } from './wizard-steps.js';
 import { resolvePackageScopeDefault } from './package-scope.js';
 import { runGenerator } from './run.js';
@@ -471,10 +472,22 @@ export async function main(argv: string[]): Promise<void> {
   // flagsGivenFor()'s own doc comment.
   const flagsGiven = flagsGivenFor(program, namespace);
 
-  const configDefaults = await resolveConfigDefaults(namespace, {
+  const gitIdentityDefaults = { author: await deriveAuthorFromGitConfig() };
+  const configFromFile = await resolveConfigDefaults(namespace, {
     cwd: process.cwd(),
     homeDir: homedir(),
   });
+  // A JS config file can define a key as undefined (e.g. derived from an
+  // unset env var) — filtered out here for the same reason resolve() does
+  // it (options.ts): an own `undefined` key would otherwise win a spread
+  // over gitIdentityDefaults's real value, unlike a key that's simply
+  // absent.
+  const configDefaults = {
+    ...gitIdentityDefaults,
+    ...Object.fromEntries(
+      Object.entries(configFromFile).filter(([, value]) => value !== undefined),
+    ),
+  };
 
   const destGiven = program.getOptionValueSource('dest') === 'cli';
   const interactive = isInteractive(yes);

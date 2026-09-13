@@ -94,7 +94,6 @@ export const JS_OPTIONS: OptionSpec[] = [
     flag: '--author <value>',
     prompt: 'Author',
     kind: 'text',
-    default: 'Edward Kelly <eddie@sektek.net>',
   },
   {
     key: 'license',

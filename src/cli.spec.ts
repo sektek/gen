@@ -11,6 +11,10 @@ import { tmpdir } from 'node:os';
 import { expect } from 'chai';
 
 import { main, resolveNamespace } from './cli.js';
+import {
+  resetGitConfigReaderForTesting,
+  setGitConfigReaderForTesting,
+} from './git-identity.js';
 
 const KNOWN_NAMESPACES = [
   '@sektek/base:app',
@@ -168,6 +172,57 @@ describe('cli', function () {
         readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
       );
       expect(packageJson.license).to.equal('Apache-2.0');
+    });
+  });
+
+  describe('main (git-derived author, automated mode)', function () {
+    let destinationRoot: string;
+
+    beforeEach(function () {
+      destinationRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-author-'));
+      const gitConfig: Record<string, string> = {
+        'user.name': 'Ada Lovelace',
+        'user.email': 'ada@example.com',
+      };
+      setGitConfigReaderForTesting(async key => gitConfig[key]);
+    });
+
+    afterEach(function () {
+      resetGitConfigReaderForTesting();
+      rmSync(destinationRoot, { recursive: true, force: true });
+    });
+
+    const run = (...extraArgs: string[]) =>
+      main([
+        'node',
+        'gen',
+        'js:base-package',
+        '--yes',
+        '--dest',
+        destinationRoot,
+        '--package-scope',
+        'acme',
+        ...extraArgs,
+      ]);
+
+    it('reaches the generated package.json when nothing else sets author', async function () {
+      await run();
+
+      const packageJson = JSON.parse(
+        readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
+      );
+      expect(packageJson.author).to.equal('Ada Lovelace <ada@example.com>');
+    });
+
+    it('still lets an explicit --author flag win over the git-derived default', async function () {
+      await run('--author', 'Explicit Author <explicit@example.com>');
+
+      const packageJson = JSON.parse(
+        readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
+      );
+      expect(packageJson.author).to.equal(
+        'Explicit Author <explicit@example.com>',
+      );
     });
   });
 
