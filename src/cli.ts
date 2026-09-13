@@ -20,9 +20,7 @@ import { resolvePackageScopeDefault } from './package-scope.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
 
-// Package aliases "js"/"base" resolve to — distinct from
-// CoreOptions.namespace (the --namespace flag, config-scoping value
-// written into generated projects).
+// Package aliases "js"/"base" resolve to.
 const PREFIX_ALIASES: Record<string, string> = {
   base: '@sektek/base',
   js: '@sektek/js',
