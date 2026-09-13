@@ -262,33 +262,10 @@ function renderInput({
   }
 
   if (spec.kind === 'text') {
-    // Ghost default text is rendered ourselves (below) rather than through
-    // ink-text-input's own `placeholder` prop, which styles itself with a
-    // hardcoded chalk.grey — a different, and visibly inconsistent, color
-    // mechanism from the dimColor/chalk.dim treatment the project-name
-    // step's GeneratedTextInput already uses for its own pristine default.
-    //
-    // `placeholder` is deliberately never passed to <TextInput> — not just
-    // to avoid its own grey copy, but because ink-text-input's placeholder
-    // branch only special-cases the *first* character (inverted, to look
-    // like a cursor sitting on it) when a placeholder is actually given; a
-    // bare empty value with no placeholder instead renders a lone
-    // `chalk.inverse(' ')` — a real, separate space character — with
-    // nothing to overlap. That combination (our full ghost string
-    // appended right after that unrelated space) is what produced a
-    // leading space with the cursor sitting to its left instead of on the
-    // ghost text's own first letter.
-    //
-    // So the ghost text is built by hand here, replicating ink-text-input's
-    // own first-char-inverted logic with chalk.dim instead of chalk.grey
-    // for the rest, and <TextInput> is told not to draw its own cursor at
-    // all (`showCursor={false}`) while this is showing — it renders empty
-    // in that state (see ink-text-input's own source: with no placeholder,
-    // an empty value with showCursor false renders nothing), leaving our
-    // string as the only thing on the line. `showCursor` only ever gates
-    // ink-text-input's arrow-key navigation and its own cursor glyph, never
-    // typing/backspace, so toggling it off only while the field is
-    // genuinely empty has no effect on input handling.
+    // Not <TextInput placeholder={defaultText}>: ink-text-input only
+    // inverts a placeholder's own first character when it's the one
+    // passed placeholder text — an unstyled default here reintroduces the
+    // leading-space/misplaced-cursor bug from SEK-93.
     const defaultText =
       spec.default !== undefined ? String(spec.default) : undefined;
     const showGhost = textValue === '' && defaultText !== undefined;
