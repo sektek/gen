@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0](https://github.com/sektek/gen/compare/v0.7.2...v0.8.0) (2026-09-13)
+
+### Features
+
+* **gen:** delay npm scope prompt until GitHub is decided, derive default ([#15](https://github.com/sektek/gen/issues/15)) ([b87a645](https://github.com/sektek/gen/commit/b87a645be0955984541ad3f4ffb81a368df34eae)), closes [#9](https://github.com/sektek/gen/issues/9)
+
 ## [0.7.2](https://github.com/sektek/gen/compare/v0.7.1...v0.7.2) (2026-09-13)
 
 ### Bug Fixes
