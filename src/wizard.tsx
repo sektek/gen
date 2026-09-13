@@ -2,6 +2,7 @@ import { Box, Static, Text, useInput } from 'ink';
 import { useEffect, useRef, useState } from 'react';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
+import chalk from 'chalk';
 
 import {
   type EditResult,
@@ -261,17 +262,29 @@ function renderInput({
   }
 
   if (spec.kind === 'text') {
+    // Not <TextInput placeholder={defaultText}>: ink-text-input only
+    // inverts a placeholder's own first character when it's the one
+    // passed placeholder text — an unstyled default here reintroduces the
+    // leading-space/misplaced-cursor bug from SEK-93.
+    const defaultText =
+      spec.default !== undefined ? String(spec.default) : undefined;
+    const showGhost = textValue === '' && defaultText !== undefined;
     return (
       <Box>
         <Text>{spec.prompt}: </Text>
         <TextInput
           value={textValue}
           onChange={setTextValue}
-          placeholder={
-            spec.default !== undefined ? String(spec.default) : undefined
-          }
+          showCursor={!showGhost}
           onSubmit={value => advance(value === '' ? spec.default : value)}
         />
+        {showGhost && (
+          <Text>
+            {defaultText.length > 0
+              ? chalk.inverse(defaultText[0]) + chalk.dim(defaultText.slice(1))
+              : chalk.inverse(' ')}
+          </Text>
+        )}
       </Box>
     );
   }
