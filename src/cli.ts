@@ -13,6 +13,7 @@ import {
 import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
 import type { OptionSpec } from './schema.js';
 import { REGISTRY } from './registry.js';
+import { applyGitInitImplications } from './git-init-implications.js';
 import { applyLicenseImplications } from './license-implications.js';
 import { explicitOptionKeysFromWizard } from './wizard-steps.js';
 import { runGenerator } from './run.js';
@@ -459,12 +460,18 @@ export async function main(argv: string[]): Promise<void> {
     skipInstall: !install,
   };
 
-  const { resolved: licensed, warnings } = applyLicenseImplications(merged);
-  for (const warning of warnings) {
+  const { resolved: licensed, warnings: licenseWarnings } =
+    applyLicenseImplications(merged);
+  const { resolved: gitChecked, warnings: gitInitWarnings } =
+    applyGitInitImplications(licensed);
+  for (const warning of [...licenseWarnings, ...gitInitWarnings]) {
     console.warn(chalk.yellow(warning));
   }
-  // Annotated: object-spread would otherwise drop licensed's index signature.
-  const options: Record<string, unknown> = { ...licensed, explicitOptionKeys };
+  // Annotated: object-spread would otherwise drop gitChecked's index signature.
+  const options: Record<string, unknown> = {
+    ...gitChecked,
+    explicitOptionKeys,
+  };
 
   const destinationRoot = await resolveDestinationRoot({
     destGiven,

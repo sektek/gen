@@ -8,8 +8,10 @@ import {
   applyBackspace,
   applyTypedInput,
   choicesFor,
+  createRepoImpliedAnswers,
   defaultIndexFor,
   explicitOptionKeysFromWizard,
+  gitInitImpliedAnswers,
   hintsFor,
   initialAnswers,
   licenseImpliedAnswers,
@@ -77,6 +79,65 @@ const listSpec: OptionSpec = {
   kind: 'list',
   default: [],
 };
+
+// Mirrors GIT_OPTIONS + GITHUB_OPTIONS from schema.ts, for exercising
+// createRepoImpliedAnswers/gitInitImpliedAnswers against the real shape of
+// that block.
+const gitInitSpec: OptionSpec = {
+  key: 'gitInit',
+  flag: '--no-git-init',
+  prompt: 'Initialize a local git repo with an initial commit?',
+  kind: 'boolean',
+  default: true,
+};
+
+const createRepoSpec: OptionSpec = {
+  key: 'createRepo',
+  flag: '--create-repo',
+  prompt: 'Create a GitHub repo and push?',
+  kind: 'boolean',
+  default: false,
+};
+
+const repoVisibilitySpec: OptionSpec = {
+  key: 'repoVisibility',
+  flag: '--repo-visibility <value>',
+  prompt: 'Repo visibility',
+  kind: 'select',
+  choices: ['public', 'private'],
+  default: 'private',
+};
+
+const repoOwnerSpec: OptionSpec = {
+  key: 'repoOwner',
+  flag: '--repo-owner <value>',
+  prompt: 'GitHub org (blank = your account)',
+  kind: 'text',
+};
+
+const githubTokenSpec: OptionSpec = {
+  key: 'githubToken',
+  flag: '--github-token <value>',
+  prompt: 'GitHub token (blank = env/gh CLI)',
+  kind: 'text',
+};
+
+const pushSpec: OptionSpec = {
+  key: 'push',
+  flag: '--no-push',
+  prompt: 'Push after committing?',
+  kind: 'boolean',
+  default: true,
+};
+
+const githubSchema: OptionSpec[] = [
+  gitInitSpec,
+  createRepoSpec,
+  repoVisibilitySpec,
+  repoOwnerSpec,
+  githubTokenSpec,
+  pushSpec,
+];
 
 describe('wizard-steps', function () {
   describe('pendingSpecs', function () {
@@ -230,6 +291,74 @@ describe('wizard-steps', function () {
     });
   });
 
+  describe('createRepoImpliedAnswers', function () {
+    it('returns nothing when createRepo is not false', function () {
+      expect(createRepoImpliedAnswers(true, githubSchema)).to.deep.equal({});
+      expect(createRepoImpliedAnswers(undefined, githubSchema)).to.deep.equal(
+        {},
+      );
+    });
+
+    it('implies each github-detail key at its own schema default when createRepo is false', function () {
+      expect(createRepoImpliedAnswers(false, githubSchema)).to.deep.equal({
+        repoVisibility: 'private',
+        repoOwner: undefined,
+        githubToken: undefined,
+        push: true,
+      });
+    });
+
+    it('never implies createRepo itself', function () {
+      // createRepo is already the key being answered here — it's gitInit's
+      // job (see gitInitImpliedAnswers) to imply createRepo's own value.
+      expect(
+        createRepoImpliedAnswers(false, githubSchema),
+      ).to.not.have.property('createRepo');
+    });
+
+    it('only implies keys actually present in schema', function () {
+      expect(createRepoImpliedAnswers(false, [createRepoSpec])).to.deep.equal(
+        {},
+      );
+    });
+  });
+
+  describe('gitInitImpliedAnswers', function () {
+    it('returns nothing when gitInit is not false', function () {
+      expect(gitInitImpliedAnswers(true, githubSchema)).to.deep.equal({});
+      expect(gitInitImpliedAnswers(undefined, githubSchema)).to.deep.equal({});
+    });
+
+    it('implies createRepo plus every github-detail key when gitInit is false', function () {
+      expect(gitInitImpliedAnswers(false, githubSchema)).to.deep.equal({
+        createRepo: false,
+        repoVisibility: 'private',
+        repoOwner: undefined,
+        githubToken: undefined,
+        push: true,
+      });
+    });
+
+    it('only implies keys actually present in schema', function () {
+      expect(gitInitImpliedAnswers(false, [gitInitSpec])).to.deep.equal({});
+    });
+
+    // Regression test: withConfigDefaults() (schema.ts) can override a
+    // spec's own `default` from a config file — createRepo's included, so
+    // a config setting createRepo's default to true must not survive into
+    // the implied answer once gitInit is declined, or the wizard would
+    // silently finish with createRepo: true and no local repo to push from.
+    it('forces createRepo to false even when its schema default has been overridden to true', function () {
+      const schemaWithOverriddenDefault = githubSchema.map(spec =>
+        spec.key === 'createRepo' ? { ...spec, default: true } : spec,
+      );
+
+      expect(
+        gitInitImpliedAnswers(false, schemaWithOverriddenDefault).createRepo,
+      ).to.equal(false);
+    });
+  });
+
   describe('initialAnswers', function () {
     const jsSchema: OptionSpec[] = [
       {
@@ -282,6 +411,35 @@ describe('wizard-steps', function () {
         repoVisibility: 'private',
       });
     });
+
+    it('fills in the implied answers when createRepo is seeded as false', function () {
+      expect(initialAnswers({ createRepo: false }, githubSchema)).to.deep.equal(
+        {
+          createRepo: false,
+          repoVisibility: 'private',
+          repoOwner: undefined,
+          githubToken: undefined,
+          push: true,
+        },
+      );
+    });
+
+    it('fills in the whole github block when gitInit is seeded as false', function () {
+      // SEK-89: declining gitInit skips createRepo's own question too, not
+      // just the details behind it.
+      expect(initialAnswers({ gitInit: false }, githubSchema)).to.deep.equal({
+        gitInit: false,
+        createRepo: false,
+        repoVisibility: 'private',
+        repoOwner: undefined,
+        githubToken: undefined,
+        push: true,
+      });
+    });
+
+    it('leaves the github block untouched when neither gitInit nor createRepo is seeded false', function () {
+      expect(initialAnswers({}, githubSchema)).to.deep.equal({});
+    });
   });
 
   describe('mergeAnswer', function () {
@@ -323,6 +481,63 @@ describe('wizard-steps', function () {
       expect(
         mergeAnswer({ private: false }, 'license', 'UNLICENSED', jsSchema),
       ).to.deep.equal({ license: 'UNLICENSED', private: false });
+    });
+
+    it('fills in the remaining github-detail answers when createRepo is answered false', function () {
+      expect(mergeAnswer({}, 'createRepo', false, githubSchema)).to.deep.equal({
+        createRepo: false,
+        repoVisibility: 'private',
+        repoOwner: undefined,
+        githubToken: undefined,
+        push: true,
+      });
+    });
+
+    it('fills in the whole github block when gitInit is answered false', function () {
+      expect(mergeAnswer({}, 'gitInit', false, githubSchema)).to.deep.equal({
+        gitInit: false,
+        createRepo: false,
+        repoVisibility: 'private',
+        repoOwner: undefined,
+        githubToken: undefined,
+        push: true,
+      });
+    });
+
+    it('records createRepo as true as-is, implying nothing', function () {
+      expect(mergeAnswer({}, 'createRepo', true, githubSchema)).to.deep.equal({
+        createRepo: true,
+      });
+    });
+  });
+
+  describe('pendingSpecs + initialAnswers/mergeAnswer integration', function () {
+    // SEK-89: the actual bug report — the wizard kept asking
+    // repoVisibility/repoOwner/githubToken/push after "No" to createRepo,
+    // and the whole github block (including createRepo itself) after "No"
+    // to gitInit.
+    it('skips straight past the github detail steps once createRepo is answered false', function () {
+      // gitInit answered true first, matching real wizard step order —
+      // otherwise gitInit itself would still be pending below.
+      let answers = mergeAnswer({}, 'gitInit', true, githubSchema);
+      answers = mergeAnswer(answers, 'createRepo', false, githubSchema);
+      expect(pendingSpecs(githubSchema, answers)).to.deep.equal([]);
+    });
+
+    it('skips straight past the entire github block once gitInit is answered false', function () {
+      const answers = mergeAnswer({}, 'gitInit', false, githubSchema);
+      expect(pendingSpecs(githubSchema, answers)).to.deep.equal([]);
+    });
+
+    it('still asks every github step when gitInit/createRepo are answered true', function () {
+      let answers = mergeAnswer({}, 'gitInit', true, githubSchema);
+      answers = mergeAnswer(answers, 'createRepo', true, githubSchema);
+      expect(pendingSpecs(githubSchema, answers)).to.deep.equal([
+        repoVisibilitySpec,
+        repoOwnerSpec,
+        githubTokenSpec,
+        pushSpec,
+      ]);
     });
   });
 

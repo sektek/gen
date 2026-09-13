@@ -51,7 +51,8 @@ export type WizardProps = {
  * @param props.seed - Option values already supplied (e.g. via CLI flags).
  * @param props.onComplete - Called once with the fully-resolved answers,
  *   plus the keys actually prompted for and answered live (excluding any
- *   from `seed` or merely implied by `licenseImpliedAnswers`).
+ *   from `seed` or merely implied by an implied-answers rule, e.g.
+ *   `licenseImpliedAnswers`/`gitInitImpliedAnswers`/`createRepoImpliedAnswers`).
  * @param props.destCwd - The directory a `generateDefault` project-name answer would be created under.
  * @returns The scrolled-back answers plus the current prompt, or just the
  * scrollback once every step is answered.
