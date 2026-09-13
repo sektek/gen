@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1](https://github.com/sektek/gen/compare/v0.7.0...v0.7.1) (2026-09-13)
+
+### Bug Fixes
+
+* **gen:** normalize wizard default-text styling to match project-name step ([#11](https://github.com/sektek/gen/issues/11)) ([8d55aa0](https://github.com/sektek/gen/commit/8d55aa01840b2c12e88c7736f89f5c930b886a10))
+
 ## [0.7.0](https://github.com/sektek/gen/compare/v0.6.0...v0.7.0) (2026-09-12)
 
 ### Features
