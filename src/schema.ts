@@ -37,28 +37,19 @@ export type OptionSpec = {
   // GeneratedTextInput. Not used outside the wizard: `resolve()` (the
   // non-interactive path) only ever reads the static `default`.
   generateDefault?: () => string;
-  // 'text' specs only, mutually exclusive with generateDefault. Like
-  // generateDefault (real, editable, pre-filled text instead of a ghost
-  // placeholder) but async and given the answers collected so far in this
-  // run — for a default that both takes a moment to resolve (e.g. a
-  // network call) and depends on an earlier answer in the same run
-  // (SEK-94: packageScope's default depends on whether/how GitHub was set
-  // up). Also unlike generateDefault, this has no ctrl+r "regenerate" —
-  // there's nothing to regenerate, the derivation is deterministic given
-  // the same answers — only whatever `allowClear` below opts into. And
-  // also unlike generateDefault, `resolve()` (the non-interactive path)
-  // *does* need an equivalent: see cli.ts's `resolveAnswers`, which
-  // resolves the same derivation eagerly (from flagsGiven, not live
-  // wizard answers) and folds it in as an extraSpecs default.
+  // 'text' specs only, mutually exclusive with generateDefault. Same idea
+  // but async and given the answers collected so far in this run, for a
+  // default that depends on an earlier answer. No ctrl+r "regenerate" —
+  // the derivation is deterministic given the same answers — only
+  // whatever `allowClear` opts into. Unlike generateDefault, `resolve()`
+  // (the non-interactive path) needs an equivalent too — see cli.ts's
+  // `resolveAnswers`, which resolves the same derivation eagerly.
   generateDefaultAsync?: (answers: Record<string, unknown>) => Promise<string>;
   // 'text' specs with generateDefault or generateDefaultAsync only.
   // Whether ctrl+x clears the field to '' outright, distinct from
-  // generateDefault's own ctrl+r "regenerate" (SEK-94: packageScope's
-  // "clear the derived default to have an empty scope" — there's nothing
-  // to regenerate, just a manual override). Scoped to only fire while the
-  // field still shows the derived default unedited (isPristine), same as
-  // ctrl+r — see wizard-steps.ts's hintsFor() and wizard.tsx's
-  // GeneratedTextInput.
+  // generateDefault's own ctrl+r "regenerate". Only fires while the field
+  // still shows the derived default unedited (isPristine), same as ctrl+r
+  // — see wizard-steps.ts's hintsFor() and wizard.tsx's GeneratedTextInput.
   allowClear?: boolean;
 };
 
@@ -221,14 +212,9 @@ export const GITHUB_OPTIONS: OptionSpec[] = [
   },
 ];
 
-// The npm-scope option for the @sektek/js:* generator family (SEK-94):
-// deliberately its own array, positioned in schemaFor() *after*
-// GITHUB_OPTIONS rather than grouped into JS_OPTIONS — its default
-// (resolvePackageScopeDefault(), package-scope.ts) depends on whether/how
-// GitHub was set up, so the prompt can't come before those questions are
-// answered. No static `default` here: an unresolved/no-GitHub run falls
-// through to '' (no scope) via generateDefaultAsync/resolvePackageScopeDefault,
-// not a hardcoded org name.
+// The npm-scope option for the @sektek/js:* generator family — its own
+// array, positioned in schemaFor() *after* GITHUB_OPTIONS rather than
+// grouped into JS_OPTIONS, since its default depends on those answers.
 export const PACKAGE_SCOPE_OPTIONS: OptionSpec[] = [
   {
     key: 'packageScope',

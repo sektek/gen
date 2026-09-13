@@ -218,11 +218,9 @@ describe('cli', function () {
     });
   });
 
-  // SEK-94: packageScope's default now depends on createRepo/repoOwner,
-  // resolved eagerly for this (non-interactive) path by cli.ts's
-  // packageScopeExtraSpecs(). createRepo isn't set in either test here, so
-  // resolvePackageScopeDefault() short-circuits to '' without any network
-  // call — see package-scope.spec.ts for the GitHub-derived branches.
+  // No createRepo set in either test here, so resolvePackageScopeDefault()
+  // short-circuits to '' without any network call — see
+  // package-scope.spec.ts for the GitHub-derived branches.
   describe('main (packageScope default, automated mode)', function () {
     let destinationRoot: string;
 

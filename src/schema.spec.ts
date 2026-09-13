@@ -109,9 +109,6 @@ describe('schema', function () {
         .undefined;
     });
 
-    // SEK-94: packageScope's default depends on the GitHub answers, so its
-    // prompt must come after all of them — pendingSpecs()/the wizard just
-    // walk this array in order, so position here is what actually delays it.
     it('positions packageScope after every GITHUB_OPTIONS key for @sektek/js:* namespaces', function () {
       const result = schemaFor('@sektek/js:app');
       const keys = result.map(spec => spec.key);

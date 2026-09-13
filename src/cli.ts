@@ -231,24 +231,15 @@ async function buildProjectNameSpec(): Promise<OptionSpec> {
 
 /**
  * The automated (`!interactive`) path's equivalent of `packageScope`'s
- * `generateDefaultAsync` (schema.ts's `PACKAGE_SCOPE_OPTIONS`, SEK-94): the
- * wizard resolves that default live, from whatever's been answered so far
- * in the same run, but `resolve()` never reads `generateDefaultAsync` (only
- * a spec's static `default` — see schema.ts's own doc comment on why), and
- * a `--yes`/flags-only run has no wizard to compute it live either way. So
- * this resolves the identical derivation eagerly from `flagsGiven` (the
- * only source of `createRepo`/`repoOwner`/`githubToken` available at all
- * on this path) and folds it in as an `extraSpecs` entry, which
- * `resolve()`'s `defaults` layer picks up the same way a real schema
- * default would — still overridable by an explicit `--package-scope`, a
- * config file, or (for the base family, which has no packageScope option
- * at all) simply never applying.
+ * `generateDefaultAsync` — `resolve()` never reads that (only a spec's
+ * static `default`), and there's no wizard on this path to compute it live
+ * either way, so this resolves the same derivation eagerly from
+ * `flagsGiven` and folds it in as an `extraSpecs` entry for `resolve()`.
  *
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @param flagsGiven - Option values already supplied via CLI flags.
  * @returns A one-entry `extraSpecs` array for `resolve()`, or `[]` when
- *   irrelevant (a non-js namespace, or `--package-scope` already given —
- *   in the latter case resolving this would just be discarded anyway).
+ *   irrelevant (a non-js namespace, or `--package-scope` already given).
  */
 async function packageScopeExtraSpecs(
   namespace: string,
@@ -273,10 +264,8 @@ async function packageScopeExtraSpecs(
         : undefined,
   });
 
-  // Reuses schema.ts's own packageScope spec (flag/prompt/kind) rather than
-  // re-typing it here, just overriding `default` — `generateDefaultAsync`
-  // along for the ride is harmless: resolve() never reads it (see its own
-  // doc comment on `extraSpecs`).
+  // generateDefaultAsync comes along for the ride; harmless, since
+  // resolve() never reads it.
   return [{ ...PACKAGE_SCOPE_OPTIONS[0], default: packageScope }];
 }
 

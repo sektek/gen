@@ -63,13 +63,9 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const [dynamicDefault, setDynamicDefault] = useState<string | undefined>(
     undefined,
   );
-  // Only meaningful for a `generateDefaultAsync` spec, while its promise is
-  // still pending — see the effect below. `renderInput` shows a plain
-  // "resolving" line instead of `GeneratedTextInput` while true, since
-  // `GeneratedTextInput` isn't mounted (and its `useInput` isn't listening)
-  // until there's an actual value to show, avoiding a race where a
-  // keystroke during the resolve window would otherwise be silently
-  // clobbered the moment the resolved default arrives.
+  // True while a generateDefaultAsync default is still pending; renderInput
+  // shows a "resolving" line instead of mounting GeneratedTextInput until
+  // then, so a keystroke can't land before there's a value to edit.
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [completed, setCompleted] = useState<CompletedStep[]>([]);
@@ -81,10 +77,6 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const steps = pendingSpecs(schema, answers);
   const spec = steps[0];
   const done = spec === undefined;
-  // Only meaningful for a `generateDefault`/`generateDefaultAsync` spec:
-  // `textValue` is `''` and `dynamicDefault` is `undefined` for every other
-  // spec, so this is always `false` there too — harmless, since
-  // hintsFor()/GeneratedTextInput only ever consult it for one of those.
   const isPristine = textValue === dynamicDefault;
 
   // answers/completed/onComplete are in the deps to avoid a stale closure;
@@ -101,15 +93,10 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   // A step with `generateDefault` starts pre-filled with its current
   // (already-generated) default as real, editable text, rather than the
   // ghost placeholder text every other text spec uses — see
-  // GeneratedTextInput. `generateDefaultAsync` (SEK-94) is the same idea but
-  // async and given the answers collected so far, since its default (e.g.
-  // packageScope's) both takes a moment to resolve and depends on an
-  // earlier answer in this same run — `resolving` gates the input away
-  // until it settles (see that state's own comment above). Keyed on
-  // `spec?.key` alone, not `spec` itself: `steps`/`spec` are a new
-  // array/object every render, and re-running this on every render would
-  // stomp the field back to its default on each keystroke instead of only
-  // when the step actually changes.
+  // GeneratedTextInput. Keyed on `spec?.key` alone, not `spec` itself:
+  // `steps`/`spec` are a new array/object every render, and re-running this
+  // on every render would stomp the field back to its default on each
+  // keystroke instead of only when the step actually changes.
   useEffect(() => {
     setError(undefined);
 
@@ -153,12 +140,9 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
     setResolving(false);
     setDynamicDefault(undefined);
     setTextValue('');
-    // `answers` is read inside this effect (generateDefaultAsync(answers))
-    // but deliberately kept out of the dependency array: only *this step's*
-    // snapshot of the answers collected so far is wanted, taken once when
-    // the step becomes current — nothing after this step can change while
-    // it's still current, so re-running on every subsequent answer would
-    // only re-trigger the network call for no reason.
+    // `answers` is read here but deliberately not a dependency — only this
+    // step's snapshot is wanted; adding it would re-trigger the network
+    // call on every subsequent answer.
   }, [spec?.key]);
 
   const advance = (value: unknown) => {
@@ -261,25 +245,21 @@ type RenderInputArgs = {
 };
 
 /**
- * Renders the prompt label plus input for the current step: while a
- * `generateDefaultAsync` spec's default is still resolving, a plain
- * "Resolving…" line (no input mounted yet — see `resolving`'s own doc
- * comment on why); once there's a value, a `GeneratedTextInput` row for a
- * `text` spec with `generateDefault` or `generateDefaultAsync` (pre-filled
- * with the live-generated default; ctrl+r to regenerate for the former,
- * ctrl+x to clear for an `allowClear` spec — see that component); a plain
- * `<TextInput>` row for every other `text` spec (the schema default shown
- * as ghost placeholder text); or the prompt label above `<SelectInput>`
- * (pre-selected at the schema's default) for `select`/`boolean`.
+ * Renders the prompt label plus input for the current step: a
+ * "Resolving…" line while a `generateDefaultAsync` default is still
+ * pending, a `GeneratedTextInput` row for `generateDefault`/
+ * `generateDefaultAsync` specs, a plain `<TextInput>` row for every other
+ * `text` spec, or the prompt label above `<SelectInput>` for
+ * `select`/`boolean`.
  *
  * @param args - The current step, plus the wizard-level state/callbacks it needs.
  * @param args.spec - The option spec currently being prompted for.
  * @param args.textValue - The text input's current (uncommitted) value.
  * @param args.setTextValue - Updates the text input's current value.
  * @param args.advance - Records the answered value and moves to the next step.
- * @param args.dynamicDefault - The current live-generated default for a `generateDefault`/`generateDefaultAsync` spec.
+ * @param args.dynamicDefault - The current live-generated default, if any.
  * @param args.isPristine - Whether such a spec's field still shows that default unedited.
- * @param args.resolving - Whether a `generateDefaultAsync` spec's default is still being resolved.
+ * @param args.resolving - Whether a `generateDefaultAsync` default is still resolving.
  * @param args.error - An inline validation error to show below a `generateDefault` spec's input, if any.
  * @param args.onRegenerate - Requests a fresh generated default for a `generateDefault` spec.
  * @param args.onGeneratedSubmit - Validates and (if valid) records a `generateDefault` spec's answer.
@@ -309,11 +289,8 @@ function renderInput({
     spec.kind === 'text' &&
     (spec.generateDefault || spec.generateDefaultAsync)
   ) {
-    // Only the sync project-name step (generateDefault) needs
-    // projectNameError's filesystem-safety validation on submit — an
-    // async-derived spec like packageScope has no such constraint (an
-    // empty value, e.g. after ctrl+x, is a perfectly valid answer) and
-    // just records whatever's currently typed.
+    // Only generateDefault (the project-name step) needs projectNameError's
+    // filesystem-safety validation on submit.
     const onSubmit = spec.generateDefault ? onGeneratedSubmit : advance;
     return (
       <Box flexDirection="column">
@@ -367,9 +344,7 @@ type GeneratedTextInputProps = {
   value: string;
   isPristine: boolean;
   dynamicDefault: string;
-  // SEK-94: whether ctrl+x clears the field to '' outright — only ever
-  // true for an `allowClear` spec (packageScope); ignored (ctrl+x does
-  // nothing) for every other `generateDefault`/`generateDefaultAsync` spec.
+  // Whether ctrl+x clears the field to '' outright.
   allowClear: boolean;
   onChange: (value: string) => void;
   onRegenerate: () => void;
@@ -392,16 +367,16 @@ type GeneratedTextInputProps = {
  *
  * Deliberately not `<TextInput>` itself: that component only excludes
  * ctrl+c from the keys it inserts as characters (see ink-text-input's own
- * source), so a bare ctrl+r (or, for an `allowClear` spec, ctrl+x) would
- * fall through to its "insert this character" branch and type a literal
- * 'r'/'x' into the field. This component filters out every ctrl/meta combo
- * before it ever reaches the buffer.
+ * source), so a bare ctrl+r/ctrl+x would fall through to its "insert this
+ * character" branch and type a literal 'r'/'x' into the field. This
+ * component filters out every ctrl/meta combo before it ever reaches the
+ * buffer.
  *
  * @param props - The current value/pristine flag, and the change/regenerate/submit callbacks.
  * @param props.value - The input's current (uncommitted) value.
  * @param props.isPristine - Whether `value` still equals the currently-shown generated default.
  * @param props.dynamicDefault - The currently-shown generated default, restored when the user's own text is erased down to nothing.
- * @param props.allowClear - Whether ctrl+x clears the field (SEK-94); ignored otherwise.
+ * @param props.allowClear - Whether ctrl+x clears the field; ignored otherwise.
  * @param props.onChange - Updates the input's current value.
  * @param props.onRegenerate - Requests a fresh generated default; only actually called while `isPristine`.
  * @param props.onSubmit - Called with the current value on Enter.

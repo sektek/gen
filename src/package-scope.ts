@@ -9,20 +9,15 @@ export type PackageScopeDefaultOptions = {
 };
 
 /**
- * Derives the default npm scope (SEK-94): empty when no GitHub repo is
- * being created, the given org when one was named, or the authenticated
- * GitHub user's own login when `createRepo` is set but `repoOwner` was
- * left blank (personal account).
- *
- * This is a *default*, not a requirement — any failure resolving the
- * authenticated user (no token resolvable, an invalid one, a network
- * error, ...) falls back to an empty scope rather than throwing, so a
- * flaky/absent GitHub connection never blocks picking an npm scope. The
- * caller (the wizard's `packageScope` step, or `cli.ts`'s automated-path
- * equivalent) still lets the user type over whatever this returns.
+ * Derives the default npm scope: empty when no GitHub repo is being
+ * created, the given org when one was named, or the authenticated GitHub
+ * user's own login when `createRepo` is set but `repoOwner` was left
+ * blank (personal account). Never throws — any failure resolving the
+ * authenticated user falls back to an empty scope, so the caller can
+ * always let the user type over whatever this returns.
  *
  * @param opts - What's known so far about this run's GitHub answers.
- * @returns The npm scope to default to (never throws).
+ * @returns The npm scope to default to.
  */
 export async function resolvePackageScopeDefault(
   opts: PackageScopeDefaultOptions,
@@ -43,9 +38,6 @@ export async function resolvePackageScopeDefault(
     const { login } = await client.getAuthenticatedUser({ token });
     return login;
   } catch {
-    // No resolvable/valid token, network error, etc. — a default that
-    // can't be computed just falls through to "no scope" rather than
-    // blocking the step (see this function's own doc comment).
     return '';
   }
 }

@@ -150,9 +150,9 @@ export function flagsGivenFor(
  * @param flagsGiven - Option values already supplied (CLI flags or wizard answers).
  * @param configDefaults - Values resolved via `resolveConfigDefaults()`.
  * @param extraSpecs - Specs layered on top of `schemaFor(namespace)` — used
- *   by tests, and by cli.ts's automated-path `packageScopeExtraSpecs()`
- *   (SEK-94) to fold in an eagerly-resolved dynamic default the same way a
- *   real schema default would apply.
+ *   by tests, and by cli.ts's automated-path `packageScopeExtraSpecs()` to
+ *   fold in an eagerly-resolved dynamic default the same way a real schema
+ *   default would apply.
  * @returns The fully-resolved options object.
  */
 export function resolve(
