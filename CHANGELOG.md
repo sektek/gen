@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.2](https://github.com/sektek/gen/compare/v0.7.1...v0.7.2) (2026-09-13)
+
+### Bug Fixes
+
+* **gen:** skip GitHub questions after declining git init or repo creation ([#12](https://github.com/sektek/gen/issues/12)) ([19b294a](https://github.com/sektek/gen/commit/19b294a97acf06b53bc33538c539f7290c50cdd8))
+
 ## [0.7.1](https://github.com/sektek/gen/compare/v0.7.0...v0.7.1) (2026-09-13)
 
 ### Bug Fixes
