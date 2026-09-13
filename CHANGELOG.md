@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.0](https://github.com/sektek/gen/compare/v0.8.0...v0.9.0) (2026-09-13)
+
+### Features
+
+* **gen:** derive author default from git config (SEK-92) ([#14](https://github.com/sektek/gen/issues/14)) ([d4ddaea](https://github.com/sektek/gen/commit/d4ddaeaa6fc5da0219f880ce5b4cc9a8ab28ca97))
+
 ## [0.8.0](https://github.com/sektek/gen/compare/v0.7.2...v0.8.0) (2026-09-13)
 
 ### Features
