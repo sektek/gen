@@ -102,18 +102,18 @@ export async function promptsToOptionSpecs(
   const specs: OptionSpec[] = [];
 
   for (const prompt of mergeByName(prompts)) {
+    if (!isOptionKind(prompt.type)) {
+      throw new Error(
+        `promptsToOptionSpecs(): prompt '${prompt.name}' has unsupported type '${prompt.type}'`,
+      );
+    }
+
     const test: PredicateFn<PromptContext> = getComponent(
       prompt.includePrompt,
       'test',
     );
     if (!(await test(context))) {
       continue;
-    }
-
-    if (!isOptionKind(prompt.type)) {
-      throw new Error(
-        `promptsToOptionSpecs(): prompt '${prompt.name}' has unsupported type '${prompt.type}'`,
-      );
     }
 
     const get: ProviderFn<unknown, PromptContext> = getComponent(
