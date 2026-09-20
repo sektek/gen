@@ -25,7 +25,7 @@ export default defineConfig([
     // Local override until that lands: only a function this module actually
     // exports needs JSDoc.
     rules: {
-      'jsdoc/require-jsdoc': ['warn', { publicOnly: true }],
+      'jsdoc/require-jsdoc': ['error', { publicOnly: true }],
     },
   },
 ]);
