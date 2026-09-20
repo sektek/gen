@@ -1,10 +1,13 @@
 import { existsSync } from 'node:fs';
 
+import { expect, use } from 'chai';
 import type Environment from 'yeoman-environment';
-import { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
-import { REGISTRY, registerAll } from './registry.js';
+import { REGISTRY, promptsFor, registerAll } from './registry.js';
+
+use(chaiAsPromised);
 
 const EXPECTED_NAMESPACES = [
   '@sektek/base:app',
@@ -19,6 +22,7 @@ const EXPECTED_NAMESPACES = [
   '@sektek/base:workspace',
   '@sektek/js:app',
   '@sektek/js:base-package',
+  '@sektek/js:dependencies',
   '@sektek/js:gitconfig',
   '@sektek/js:typescript',
   '@sektek/js:eslint',
@@ -40,6 +44,24 @@ describe('registry', function () {
     for (const { namespace, path } of REGISTRY) {
       expect(existsSync(path), `${namespace} -> ${path}`).to.be.true;
     }
+  });
+
+  describe('promptsFor', function () {
+    it('throws for a namespace REGISTRY does not know about', async function () {
+      await expect(
+        promptsFor('@sektek/base:not-a-real-generator'),
+      ).to.be.rejectedWith(/Unknown generator namespace/);
+    });
+
+    it('returns [] for a generator with no prompts() override', async function () {
+      expect(await promptsFor('@sektek/base:editorconfig')).to.deep.equal([]);
+    });
+
+    it('dynamically imports the generator class and calls its own prompts()', async function () {
+      const prompts = await promptsFor('@sektek/base:license');
+
+      expect(prompts.map(prompt => prompt.name)).to.include('author');
+    });
   });
 
   describe('registerAll', function () {
