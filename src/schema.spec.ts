@@ -135,7 +135,7 @@ describe('schema', function () {
 
       expect(spec?.default).to.be.undefined;
       expect(spec?.generateDefaultAsync).to.be.a('function');
-      expect(spec?.allowClear).to.be.true;
+      expect(spec?.capabilities?.map(c => c.type)).to.include('clearable');
     });
 
     it('does not include packageScope for non-@sektek/js:* namespaces', function () {

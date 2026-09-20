@@ -8,6 +8,7 @@ import {
   applyBackspace,
   applyTypedInput,
   choicesFor,
+  clearableCapability,
   createRepoImpliedAnswers,
   defaultIndexFor,
   explicitOptionKeysFromWizard,
@@ -18,6 +19,7 @@ import {
   mergeAnswer,
   pendingSpecs,
   projectNameError,
+  reloadableCapability,
 } from './wizard-steps.js';
 import type { OptionSpec } from './schema.js';
 
@@ -586,14 +588,57 @@ describe('wizard-steps', function () {
     });
   });
 
+  describe('reloadableCapability/clearableCapability', function () {
+    it('finds a reloadable capability among others', function () {
+      const spec: OptionSpec = {
+        ...textSpec,
+        capabilities: [
+          { type: 'clearable' },
+          { type: 'reloadable', provider: () => 'x' },
+        ],
+      };
+
+      expect(reloadableCapability(spec)?.type).to.equal('reloadable');
+    });
+
+    it('finds a clearable capability among others', function () {
+      const spec: OptionSpec = {
+        ...textSpec,
+        capabilities: [
+          { type: 'reloadable', provider: () => 'x' },
+          { type: 'clearable', value: 'fallback' },
+        ],
+      };
+
+      expect(clearableCapability(spec)).to.deep.equal({
+        type: 'clearable',
+        value: 'fallback',
+      });
+    });
+
+    it('returns undefined when the spec has no capabilities at all', function () {
+      expect(reloadableCapability(textSpec)).to.be.undefined;
+      expect(clearableCapability(textSpec)).to.be.undefined;
+    });
+
+    it("returns undefined when the spec's capabilities don't include the requested type", function () {
+      const spec: OptionSpec = {
+        ...textSpec,
+        capabilities: [{ type: 'clearable' }],
+      };
+
+      expect(reloadableCapability(spec)).to.be.undefined;
+    });
+  });
+
   describe('hintsFor', function () {
     const generatedTextSpec: OptionSpec = {
       ...textSpec,
-      generateDefault: () => 'brave-otter',
+      capabilities: [{ type: 'reloadable', provider: () => 'brave-otter' }],
     };
     const clearableAsyncTextSpec: OptionSpec = {
       ...textSpec,
-      allowClear: true,
+      capabilities: [{ type: 'clearable' }],
       generateDefaultAsync: async () => 'acme',
     };
 
@@ -607,14 +652,14 @@ describe('wizard-steps', function () {
       ]);
     });
 
-    it('adds a ^R hint for a generateDefault text spec while pristine', function () {
+    it('adds a ^R hint for a reloadable-capable text spec while pristine', function () {
       expect(hintsFor(generatedTextSpec, true)).to.deep.equal([
         { key: 'Enter', label: 'confirm' },
         { key: '^R', label: 'new name' },
       ]);
     });
 
-    it('omits the ^R hint for a generateDefault text spec once edited', function () {
+    it('omits the ^R hint for a reloadable-capable text spec once edited', function () {
       expect(hintsFor(generatedTextSpec, false)).to.deep.equal([
         { key: 'Enter', label: 'confirm' },
       ]);
@@ -626,20 +671,20 @@ describe('wizard-steps', function () {
       ]);
     });
 
-    it('adds a ^X hint for an allowClear spec while pristine', function () {
+    it('adds a ^X hint for a clearable-capable spec while pristine', function () {
       expect(hintsFor(clearableAsyncTextSpec, true)).to.deep.equal([
         { key: 'Enter', label: 'confirm' },
         { key: '^X', label: 'clear' },
       ]);
     });
 
-    it('omits the ^X hint for an allowClear spec once edited', function () {
+    it('omits the ^X hint for a clearable-capable spec once edited', function () {
       expect(hintsFor(clearableAsyncTextSpec, false)).to.deep.equal([
         { key: 'Enter', label: 'confirm' },
       ]);
     });
 
-    it('omits the ^X hint for a generateDefault spec that does not allow clearing', function () {
+    it('omits the ^X hint for a reloadable-only spec that does not allow clearing', function () {
       expect(hintsFor(generatedTextSpec, true)).to.deep.equal([
         { key: 'Enter', label: 'confirm' },
         { key: '^R', label: 'new name' },

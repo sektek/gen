@@ -17,7 +17,7 @@ export type RunWizardOptions = {
   // project-name step, which isn't part of any namespace's schema (it picks
   // the destination directory's name, not a generator option).
   leadingSpecs?: OptionSpec[];
-  // Required whenever `leadingSpecs` includes a `generateDefault` spec, for
+  // Required whenever `leadingSpecs` includes the project-name step, for
   // validating a candidate name against the filesystem — see wizard.tsx's
   // `destCwd` prop.
   destCwd?: string;

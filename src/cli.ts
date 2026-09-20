@@ -225,7 +225,7 @@ async function buildProjectNameSpec(): Promise<OptionSpec> {
     prompt: 'Project name',
     kind: 'text',
     default: generateName(),
-    generateDefault: generateName,
+    capabilities: [{ type: 'reloadable', provider: generateName }],
   };
 }
 

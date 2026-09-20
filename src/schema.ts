@@ -1,3 +1,5 @@
+import { type PromptCapability, clearable } from '@sektek/generator';
+
 import { resolvePackageScopeDefault } from './package-scope.js';
 
 export type OptionKind = 'text' | 'boolean' | 'select' | 'list';
@@ -26,31 +28,44 @@ export type OptionSpec = {
   // wouldn't fit a single-value-per-occurrence flag. Falls back to
   // `helpText ?? prompt` when omitted.
   repeatHelpText?: string;
+  // A short description shown in the wizard's status bar alongside the
+  // key-instruction hints (see wizard.tsx's StatusBar) — distinct from
+  // `helpText`, which is CLI --help text and never reaches the wizard.
+  // Mirrors @sektek/generator's Prompt.hint.
+  hint?: string;
   kind: OptionKind;
   choices?: readonly string[];
   default?: unknown;
   required?: boolean;
-  // 'text' specs only. When set, the wizard pre-fills the input with the
-  // spec's current `default` as real, editable text (not ghost placeholder
-  // text) and lets the user regenerate a fresh one with ctrl+r while the
-  // field still shows that value unedited — see wizard.tsx's
-  // GeneratedTextInput. Not used outside the wizard: `resolve()` (the
-  // non-interactive path) only ever reads the static `default`.
-  generateDefault?: () => string;
-  // 'text' specs only, mutually exclusive with generateDefault. Same idea
-  // but async and given the answers collected so far in this run, for a
-  // default that depends on an earlier answer. No ctrl+r "regenerate" —
-  // the derivation is deterministic given the same answers — only
-  // whatever `allowClear` opts into. Unlike generateDefault, `resolve()`
-  // (the non-interactive path) needs an equivalent too — see cli.ts's
-  // `resolveAnswers`, which resolves the same derivation eagerly.
+  // Self-contained, opt-in wizard behaviors — mirrors @sektek/generator's
+  // Prompt.capabilities, so a Prompt's capabilities carry straight through
+  // once SEK-106 wires the adapter's output in here. 'text' specs only,
+  // for now (the only kind wizard.tsx knows how to apply either capability
+  // to — see wizard-steps.ts's reloadableCapability()/clearableCapability()
+  // and wizard.tsx's GeneratedTextInput):
+  // - `reloadable`: the wizard pre-fills the input with the resolved
+  //   `provider` value as real, editable text (not ghost placeholder
+  //   text) and lets the user regenerate a fresh one with ctrl+r while the
+  //   field still shows that value unedited. Generalizes the wizard's
+  //   former generateDefault-only mechanism (the synthetic project-name
+  //   step's own regenerate).
+  // - `clearable`: lets ctrl+x blank the field to the capability's own
+  //   `value` (default `undefined`) rather than typing over it — only
+  //   fires while the field still shows its resolved value unedited, same
+  //   as ctrl+r. Generalizes the former allowClear boolean.
+  // `default`/`generateDefaultAsync` below still govern *what* a reloadable
+  // spec's initial value is: `default` short-circuits (an already-known
+  // value skips calling `provider`/`generateDefaultAsync` again), same as
+  // before.
+  capabilities?: PromptCapability[];
+  // 'text' specs only, independent of `capabilities`. An async default
+  // depending on the answers collected so far in this run — same
+  // pre-filled-editable-text treatment as a `reloadable` capability, but
+  // resolved once (no ctrl+r) since the derivation is deterministic given
+  // the same answers. `resolve()` (the non-interactive path) needs an
+  // equivalent too — see cli.ts's `resolveAnswers`, which resolves the
+  // same derivation eagerly.
   generateDefaultAsync?: (answers: Record<string, unknown>) => Promise<string>;
-  // 'text' specs with generateDefault or generateDefaultAsync only.
-  // Whether ctrl+x clears the field to '' outright, distinct from
-  // generateDefault's own ctrl+r "regenerate". Only fires while the field
-  // still shows the derived default unedited (isPristine), same as ctrl+r
-  // — see wizard-steps.ts's hintsFor() and wizard.tsx's GeneratedTextInput.
-  allowClear?: boolean;
 };
 
 // Options every generator understands, since CoreGenerator applies these
@@ -213,7 +228,7 @@ export const PACKAGE_SCOPE_OPTIONS: OptionSpec[] = [
     flag: '--package-scope <value>',
     prompt: 'npm scope',
     kind: 'text',
-    allowClear: true,
+    capabilities: [clearable],
     generateDefaultAsync: answers =>
       resolvePackageScopeDefault({
         createRepo: answers.createRepo === true,
