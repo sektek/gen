@@ -1,25 +1,17 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import type {
+  GeneratorClass,
+  GeneratorModule,
+  Prompt,
+} from '@sektek/generator';
 import { GENERATORS as BASE_GENERATORS } from '@sektek/generator-base/manifest';
 import type Environment from 'yeoman-environment';
 import { GENERATORS as JS_GENERATORS } from '@sektek/generator-js/manifest';
-import type { Prompt } from '@sektek/generator';
 
 export type RegistryEntry = {
   namespace: string;
   path: string;
-};
-
-// What every generator class exposes statically, per @sektek/generator's
-// CoreGenerator — this is the only part of the class this module actually
-// touches (never instantiated), so it's typed narrowly rather than pulling
-// in CoreGenerator's full generic shape.
-type GeneratorClass = {
-  prompts(): Prompt[];
-};
-
-type GeneratorModule = {
-  default: GeneratorClass;
 };
 
 /**
