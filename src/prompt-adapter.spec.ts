@@ -141,14 +141,28 @@ describe('prompt-adapter', function () {
       expect(spec.flag).to.equal('--repo-owner <value>');
     });
 
-    it('builds a bare --<kebab-case> flag (no <value>) for a boolean prompt', async function () {
+    it('builds a --no-<kebab-case> flag for a boolean prompt whose resolved default is true', async function () {
       const prompts = [
         makePrompt({ name: 'gitInit', type: 'boolean', provider: () => true }),
       ];
 
       const [spec] = await promptsToOptionSpecs(prompts, CONTEXT);
 
-      expect(spec.flag).to.equal('--git-init');
+      expect(spec.flag).to.equal('--no-git-init');
+    });
+
+    it('builds a bare --<kebab-case> flag for a boolean prompt whose resolved default is false', async function () {
+      const prompts = [
+        makePrompt({
+          name: 'createRepo',
+          type: 'boolean',
+          provider: () => false,
+        }),
+      ];
+
+      const [spec] = await promptsToOptionSpecs(prompts, CONTEXT);
+
+      expect(spec.flag).to.equal('--create-repo');
     });
 
     it('excludes a prompt whose includePrompt resolves false', async function () {
@@ -204,6 +218,14 @@ describe('prompt-adapter', function () {
 
       await expect(promptsToOptionSpecs(prompts, CONTEXT)).to.be.rejectedWith(
         /unsupported type 'not-a-real-kind'/,
+      );
+    });
+
+    it("throws for a 'select' prompt, since Prompt has no choices field to map", async function () {
+      const prompts = [makePrompt({ name: 'license', type: 'select' })];
+
+      await expect(promptsToOptionSpecs(prompts, CONTEXT)).to.be.rejectedWith(
+        /unsupported type 'select'/,
       );
     });
   });

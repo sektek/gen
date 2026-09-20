@@ -69,13 +69,22 @@ async function loadGeneratorClass(path: string): Promise<GeneratorClass> {
 }
 
 /**
- * The fully-assembled `Prompt[]` for a namespace — its own `prompts()`,
- * which (per `@sektek/generator`'s `CoreGenerator`/`composites()`
- * convention) already recursively includes whatever it composes with, so
- * this is the complete prompt set for that namespace, not just its own.
+ * The namespace's own `prompts()` — per `@sektek/generator`'s
+ * `CoreGenerator`/`composites()` convention, a generator that correctly
+ * overrides `prompts()` to aggregate its composed sub-generators' own
+ * `prompts()` returns the complete set for that namespace, not just its
+ * own. That's a convention each generator class has to actually follow,
+ * though, not something this function can enforce or verify — a generator
+ * that composes others in `taskInitializing()` but never overrides
+ * `prompts()`/`composites()` (as of writing, `@sektek/js:app` and
+ * `@sektek/js:workspace` in `@sektek/generator-js@0.8.0`) falls through to
+ * `CoreGenerator`'s own default (`return [];`), so this silently returns
+ * an empty/incomplete list for that namespace instead of throwing — known
+ * gap, tracked in SEK-108.
  *
  * @param namespace - A namespace `REGISTRY` knows about (e.g. `@sektek/js:app`).
- * @returns That namespace's assembled prompts.
+ * @returns That namespace's own `prompts()` result — complete only if the
+ *   target generator class correctly implements the aggregation contract.
  */
 export async function promptsFor(namespace: string): Promise<Prompt[]> {
   const entry = REGISTRY.find(e => e.namespace === namespace);

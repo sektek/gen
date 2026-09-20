@@ -9,28 +9,31 @@ import { kebabCase } from 'lodash-es';
 
 import { type OptionKind, type OptionSpec } from './schema.js';
 
-const OPTION_KINDS: readonly OptionKind[] = [
-  'text',
-  'boolean',
-  'select',
-  'list',
-];
+// `Prompt` has no `choices` field (yet), so a 'select' kind can't actually
+// be represented — the resulting OptionSpec would have no `choices`, and
+// wizard-steps.ts's choicesFor() throws the moment such a spec reaches the
+// wizard. 'list' specs are never prompted for interactively either way
+// (see pendingSpecs()), so neither kind is reachable/supported through
+// this adapter today; only 'text'/'boolean' (every real Prompt in this
+// workspace uses one of these two) are accepted, rather than silently
+// producing an unusable spec for the other two.
+const SUPPORTED_KINDS: readonly OptionKind[] = ['text', 'boolean'];
 
-function isOptionKind(type: string): type is OptionKind {
-  return (OPTION_KINDS as readonly string[]).includes(type);
+function isSupportedKind(type: string): type is OptionKind {
+  return (SUPPORTED_KINDS as readonly string[]).includes(type);
 }
 
-// A boolean prompt's flag takes no <value> placeholder (matching e.g.
-// GITHUB_OPTIONS's '--create-repo'); every other kind does. This doesn't
-// attempt schema.ts's other convention, a defaults-true boolean spelled as
-// '--no-<x>' (e.g. '--no-git-init') - that needs knowing the prompt's
-// resolved default is `true`, which isn't yet available at this point for
-// every caller, and neither of SEK-106's two proven-case migrations (a
-// text prompt, and prompts already gated via includePrompt rather than
-// given a fresh flag) actually needs it.
-function flagFor(prompt: Prompt): string {
+// A boolean prompt whose resolved default is true needs the negated
+// '--no-<x>' form (matching schema.ts's own convention, e.g. GIT_OPTIONS's
+// '--no-git-init') — Commander gives a bare positive flag no way to set
+// the value back to false. Every other case (a false-default boolean, or
+// any other kind) uses the plain form.
+function flagFor(prompt: Prompt, resolvedDefault: unknown): string {
   const kebab = kebabCase(prompt.name);
-  return prompt.type === 'boolean' ? `--${kebab}` : `--${kebab} <value>`;
+  if (prompt.type !== 'boolean') {
+    return `--${kebab} <value>`;
+  }
+  return resolvedDefault === true ? `--no-${kebab}` : `--${kebab}`;
 }
 
 /**
@@ -102,7 +105,7 @@ export async function promptsToOptionSpecs(
   const specs: OptionSpec[] = [];
 
   for (const prompt of mergeByName(prompts)) {
-    if (!isOptionKind(prompt.type)) {
+    if (!isSupportedKind(prompt.type)) {
       throw new Error(
         `promptsToOptionSpecs(): prompt '${prompt.name}' has unsupported type '${prompt.type}'`,
       );
@@ -120,14 +123,15 @@ export async function promptsToOptionSpecs(
       prompt.provider,
       'get',
     );
+    const value = await get(context);
 
     specs.push({
       key: prompt.name,
-      flag: flagFor(prompt),
+      flag: flagFor(prompt, value),
       prompt: prompt.label,
       helpText: prompt.hint,
       kind: prompt.type,
-      default: await get(context),
+      default: value,
     });
   }
 
