@@ -5,6 +5,7 @@ import {
   getComponent,
 } from '@sektek/utility-belt';
 import type { Prompt, PromptContext } from '@sektek/generator';
+import { kebabCase } from 'lodash-es';
 
 import { type OptionKind, type OptionSpec } from './schema.js';
 
@@ -17,12 +18,6 @@ const OPTION_KINDS: readonly OptionKind[] = [
 
 function isOptionKind(type: string): type is OptionKind {
   return (OPTION_KINDS as readonly string[]).includes(type);
-}
-
-// camelCase -> kebab-case, matching every hand-written flag in schema.ts
-// (e.g. 'repoOwner' -> 'repo-owner').
-function kebabCase(name: string): string {
-  return name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 }
 
 // A boolean prompt's flag takes no <value> placeholder (matching e.g.
