@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.10.0](https://github.com/sektek/gen/compare/v0.9.0...v0.10.0) (2026-09-20)
+
+### Features
+
+* **gen:** registry dynamic-import + Prompt→OptionSpec adapter ([#16](https://github.com/sektek/gen/issues/16)) ([a5482b9](https://github.com/sektek/gen/commit/a5482b9aaa7cb065ee93d23525f91d3d6cf52e73)), closes [sektek/generator#10](https://github.com/sektek/generator/issues/10) [generator#11](https://github.com/sektek/generator/issues/11)
+
 ## [0.9.0](https://github.com/sektek/gen/compare/v0.8.0...v0.9.0) (2026-09-13)
 
 ### Features
