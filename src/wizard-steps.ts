@@ -1,8 +1,50 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { PromptCapability } from '@sektek/generator';
+
 import type { OptionSpec } from './schema.js';
 import { isSafePathSegment } from './project-name.js';
+
+/**
+ * The `spec.capabilities` entry of the given `type`, if any — the lookup
+ * behind `reloadableCapability()`/`clearableCapability()`.
+ *
+ * @param spec - The option spec to check.
+ * @param type - The capability type to look for.
+ * @returns The matching capability, or `undefined` if `spec` doesn't declare one.
+ */
+function capabilityOf<T extends PromptCapability['type']>(
+  spec: OptionSpec,
+  type: T,
+): Extract<PromptCapability, { type: T }> | undefined {
+  return spec.capabilities?.find(
+    (capability): capability is Extract<PromptCapability, { type: T }> =>
+      capability.type === type,
+  );
+}
+
+/**
+ * A `text` spec's `reloadable` capability, if it declares one — see
+ * `OptionSpec.capabilities`.
+ *
+ * @param spec - The option spec to check.
+ * @returns The `reloadable` capability, or `undefined`.
+ */
+export function reloadableCapability(spec: OptionSpec) {
+  return capabilityOf(spec, 'reloadable');
+}
+
+/**
+ * A `text` spec's `clearable` capability, if it declares one — see
+ * `OptionSpec.capabilities`.
+ *
+ * @param spec - The option spec to check.
+ * @returns The `clearable` capability, or `undefined`.
+ */
+export function clearableCapability(spec: OptionSpec) {
+  return capabilityOf(spec, 'clearable');
+}
 
 export type WizardChoice = {
   label: string;
@@ -441,12 +483,12 @@ export type Hint = {
  * i.e. the wizard is about to finish) shows nothing.
  *
  * @param spec - The option spec currently being prompted for, if any.
- * @param isPristine - For a `generateDefault`/`generateDefaultAsync` spec,
- *   whether its field still shows the generated default unedited — the `^R`
- *   hint only applies (and ctrl+r only actually regenerates, see
- *   `GeneratedTextInput`) while true, and likewise for `^X`
- *   (`allowClear`, ctrl+x) clearing to an empty value; ignored for every
- *   other spec kind.
+ * @param isPristine - For a `reloadable`/`clearable`-capable spec (or one
+ *   with `generateDefaultAsync`), whether its field still shows the
+ *   resolved default unedited — the `^R` hint only applies (and ctrl+r only
+ *   actually regenerates, see `GeneratedTextInput`) while true, and
+ *   likewise for `^X` (`clearable`, ctrl+x) clearing the field; ignored for
+ *   every other spec kind.
  * @returns The hints to show in the status bar, in display order.
  */
 export function hintsFor(
@@ -466,9 +508,11 @@ export function hintsFor(
 
   return [
     { key: 'Enter', label: 'confirm' },
-    ...(spec.generateDefault && isPristine
+    ...(reloadableCapability(spec) && isPristine
       ? [{ key: '^R', label: 'new name' }]
       : []),
-    ...(spec.allowClear && isPristine ? [{ key: '^X', label: 'clear' }] : []),
+    ...(clearableCapability(spec) && isPristine
+      ? [{ key: '^X', label: 'clear' }]
+      : []),
   ];
 }

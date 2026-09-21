@@ -129,9 +129,10 @@ export async function promptsToOptionSpecs(
       key: prompt.name,
       flag: flagFor(prompt, value),
       prompt: prompt.label,
-      helpText: prompt.hint,
+      hint: prompt.hint,
       kind: prompt.type,
       default: value,
+      capabilities: prompt.capabilities,
     });
   }
 
