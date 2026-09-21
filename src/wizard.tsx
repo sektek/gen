@@ -88,15 +88,9 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const [dynamicDefault, setDynamicDefault] = useState<string | undefined>(
     undefined,
   );
-  // The key of the step still awaiting a *genuinely async* resolution
-  // (a reloadable capability's provider, or generateDefaultAsync, that
-  // returned a real promise) — not a plain `resolving` boolean, since that
-  // would only ever get set to `true` by the effect below, which runs
-  // *after* the render that first shows the new `spec`: for one render
-  // right after advancing into an async step, a boolean would still hold
-  // the previous step's value, mounting GeneratedTextInput early with
-  // stale text. Comparing keys instead is correct starting from the very
-  // first render of the new step. Left `undefined` (rather than set then
+  // The key of the step still awaiting a *genuinely async* resolution (a
+  // reloadable capability's provider, or generateDefaultAsync, that
+  // returned a real promise). Left `undefined` (rather than set then
   // cleared) for a *synchronously*-resolving provider, so a sync reload
   // never shows "Resolving…" at all.
   const [pendingAsyncKey, setPendingAsyncKey] = useState<string | undefined>(
@@ -104,6 +98,19 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   );
   const [error, setError] = useState<string | undefined>(undefined);
   const [completed, setCompleted] = useState<CompletedStep[]>([]);
+  // The step key textValue/dynamicDefault/pendingAsyncKey/error above are
+  // currently valid for — see the reset below.
+  const [resolvedForKey, setResolvedForKey] = useState<string | undefined>(
+    undefined,
+  );
+  // Invalidates a regenerate() call (see below) that's no longer relevant
+  // — either a newer regenerate superseded it (two quick ctrl+r presses),
+  // or the step changed before it resolved. Bumped both by the reset below
+  // (once per step transition) and inside regenerate() itself (once per
+  // press); a completion checks its captured token against this ref and
+  // drops itself if it no longer matches, instead of overwriting a newer
+  // value with a stale one.
+  const generationRef = useRef(0);
 
   // Recomputed from live `answers` (not the static `seed` prop) every
   // render, since `steps` can shrink mid-flow once `license` resolves to
@@ -112,6 +119,24 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   const steps = pendingSpecs(schema, answers);
   const spec = steps[0];
   const done = spec === undefined;
+
+  // Resets textValue/dynamicDefault/pendingAsyncKey/error synchronously, in
+  // render, the moment spec.key no longer matches what they were resolved
+  // for. An effect alone can't do this: it only runs after this render has
+  // already committed, which would paint the *previous* step's value for
+  // one frame before catching up. Calling setState here bails React out of
+  // this render and retries immediately with the reset values (see React's
+  // docs on adjusting state during rendering), so nothing stale is ever
+  // actually rendered.
+  if (spec?.key !== resolvedForKey) {
+    setResolvedForKey(spec?.key);
+    setTextValue('');
+    setDynamicDefault(undefined);
+    setPendingAsyncKey(undefined);
+    setError(undefined);
+    generationRef.current++;
+  }
+
   const resolving =
     pendingAsyncKey !== undefined && pendingAsyncKey === spec?.key;
   const isPristine = textValue === dynamicDefault;
@@ -133,11 +158,11 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
   // GeneratedTextInput. Keyed on `spec?.key` alone, not `spec` itself:
   // `steps`/`spec` are a new array/object every render, and re-running this
   // on every render would stomp the field back to its default on each
-  // keystroke instead of only when the step actually changes.
+  // keystroke instead of only when the step actually changes. The reset
+  // above already blanked textValue/dynamicDefault/pendingAsyncKey/error
+  // for this key, so this effect only needs to act when there's actually
+  // something to resolve.
   useEffect(() => {
-    setError(undefined);
-    setPendingAsyncKey(undefined);
-
     const reload = spec ? reloadableCapability(spec) : undefined;
     if (spec?.kind === 'text' && (reload || spec.generateDefaultAsync)) {
       if (spec.default !== undefined) {
@@ -164,8 +189,6 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
       }
 
       let cancelled = false;
-      setDynamicDefault(undefined);
-      setTextValue('');
       setPendingAsyncKey(key);
 
       void (async () => {
@@ -182,9 +205,6 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
         cancelled = true;
       };
     }
-
-    setDynamicDefault(undefined);
-    setTextValue('');
     // `answers` is read here but deliberately not a dependency — only this
     // step's snapshot is wanted; adding it would re-trigger the network
     // call on every subsequent answer.
@@ -245,9 +265,18 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
     if (!reload) {
       return;
     }
+    // Claims this regenerate as the latest one before awaiting; a second
+    // ctrl+r before this resolves (or advancing past this step entirely,
+    // which bumps generationRef via the reset above) invalidates the token,
+    // so an out-of-order or abandoned completion drops itself instead of
+    // overwriting a newer value.
+    const token = ++generationRef.current;
     void (async () => {
       const get = getComponent(reload.provider, 'get') as ProviderFn<unknown>;
       const next = String(await get());
+      if (token !== generationRef.current) {
+        return;
+      }
       setDynamicDefault(next);
       setTextValue(next);
       setError(undefined);

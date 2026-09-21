@@ -103,8 +103,22 @@ describe('prompt-adapter', function () {
 
       expect(spec.key).to.equal('author');
       expect(spec.prompt).to.equal('Author');
-      expect(spec.helpText).to.equal('Who wrote this?');
+      // hint is the wizard's status-bar text (schema.ts's OptionSpec.hint),
+      // distinct from helpText (CLI --help only) — a Prompt has no
+      // CLI-help-specific field, so helpText is deliberately left unset
+      // here and falls back to `prompt`.
+      expect(spec.hint).to.equal('Who wrote this?');
+      expect(spec.helpText).to.be.undefined;
       expect(spec.kind).to.equal('text');
+    });
+
+    it("carries a prompt's capabilities through to the spec", async function () {
+      const capabilities = [{ type: 'clearable' as const, value: undefined }];
+      const prompts = [makePrompt({ name: 'packageScope', capabilities })];
+
+      const [spec] = await promptsToOptionSpecs(prompts, CONTEXT);
+
+      expect(spec.capabilities).to.equal(capabilities);
     });
 
     it("resolves provider() eagerly into the spec's default", async function () {
