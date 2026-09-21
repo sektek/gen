@@ -7,64 +7,32 @@ export type OptionKind = 'text' | 'boolean' | 'select' | 'list';
 export type OptionSpec = {
   key: string;
   flag: string;
-  // 'list' kind only: a second, repeatable flag contributing to the same
-  // `key` as `flag`'s comma-delimited value — e.g. `flag: '--dependencies
-  // <list>'` alongside `repeatFlag: '--dependency <pkg>'`. Both may be
-  // given in the same invocation; their values concatenate (comma-split
-  // `flag` value first, then each `repeatFlag` occurrence), never one
-  // replacing the other. See options.ts's `flagsGivenFor()`.
+  // 'list' kind only: a repeatable flag contributing to the same `key` as
+  // `flag`'s comma-delimited value; both may be given together and their
+  // values concatenate. See options.ts's `flagsGivenFor()`.
   repeatFlag?: string;
   prompt: string;
-  // Shown by `--help` instead of `prompt`, when set. `prompt` is written as
-  // a natural Yes/No question for the wizard (see wizard-steps.ts's
-  // choicesFor()) — for a negated boolean flag (--no-<x>), that same
-  // wording reads backwards next to its flag in --help output (e.g.
-  // "--no-git-init  Initialize a local git repo...?" looks like the flag
-  // enables the thing it actually disables). Falls back to `prompt` when
-  // omitted.
+  // Shown by `--help` instead of `prompt`. Falls back to `prompt`.
   helpText?: string;
-  // 'list' kind only: --help text for `repeatFlag` specifically, when
-  // `helpText`/`prompt`'s wording (written for the comma-delimited `flag`)
-  // wouldn't fit a single-value-per-occurrence flag. Falls back to
-  // `helpText ?? prompt` when omitted.
+  // 'list' kind only: --help text for `repeatFlag` specifically. Falls
+  // back to `helpText ?? prompt`.
   repeatHelpText?: string;
-  // A short description shown in the wizard's status bar alongside the
-  // key-instruction hints (see wizard.tsx's StatusBar) — distinct from
-  // `helpText`, which is CLI --help text and never reaches the wizard.
-  // Mirrors @sektek/generator's Prompt.hint.
+  // Shown in the wizard's status bar; distinct from `helpText` (CLI --help
+  // only, never reaches the wizard). Mirrors @sektek/generator's Prompt.hint.
   hint?: string;
   kind: OptionKind;
   choices?: readonly string[];
   default?: unknown;
   required?: boolean;
-  // Self-contained, opt-in wizard behaviors — mirrors @sektek/generator's
-  // Prompt.capabilities, so a Prompt's capabilities carry straight through
-  // once SEK-106 wires the adapter's output in here. 'text' specs only,
-  // for now (the only kind wizard.tsx knows how to apply either capability
-  // to — see wizard-steps.ts's reloadableCapability()/clearableCapability()
-  // and wizard.tsx's GeneratedTextInput):
-  // - `reloadable`: the wizard pre-fills the input with the resolved
-  //   `provider` value as real, editable text (not ghost placeholder
-  //   text) and lets the user regenerate a fresh one with ctrl+r while the
-  //   field still shows that value unedited. Generalizes the wizard's
-  //   former generateDefault-only mechanism (the synthetic project-name
-  //   step's own regenerate).
-  // - `clearable`: lets ctrl+x blank the field to the capability's own
-  //   `value` (default `undefined`) rather than typing over it — only
-  //   fires while the field still shows its resolved value unedited, same
-  //   as ctrl+r. Generalizes the former allowClear boolean.
-  // `default`/`generateDefaultAsync` below still govern *what* a reloadable
-  // spec's initial value is: `default` short-circuits (an already-known
-  // value skips calling `provider`/`generateDefaultAsync` again), same as
-  // before.
+  // Opt-in wizard behaviors, 'text' specs only. `reloadable` pre-fills the
+  // input with the resolved `provider` value as editable text and lets
+  // ctrl+r regenerate it; `clearable` lets ctrl+x blank the field to the
+  // capability's own `value` (default undefined). Mirrors
+  // @sektek/generator's Prompt.capabilities.
   capabilities?: PromptCapability[];
-  // 'text' specs only, independent of `capabilities`. An async default
-  // depending on the answers collected so far in this run — same
-  // pre-filled-editable-text treatment as a `reloadable` capability, but
-  // resolved once (no ctrl+r) since the derivation is deterministic given
-  // the same answers. `resolve()` (the non-interactive path) needs an
-  // equivalent too — see cli.ts's `resolveAnswers`, which resolves the
-  // same derivation eagerly.
+  // 'text' specs only: an async default depending on the answers collected
+  // so far, resolved once (no ctrl+r). `resolve()` (the non-interactive
+  // path) has its own equivalent — see cli.ts's `resolveAnswers`.
   generateDefaultAsync?: (answers: Record<string, unknown>) => Promise<string>;
 };
 
@@ -128,15 +96,11 @@ export const JS_OPTIONS: OptionSpec[] = [
   },
 ];
 
-// Options for generator-js's `dependencies` sub-generator (SEK-87):
-// user-supplied npm packages to add as dependencies/devDependencies, each
-// entry a `package-name` or `package-name@version` string (scoped packages
-// supported, e.g. `@scope/name@1.2.3`). JS/TS-only, so merged only into
-// schemaFor()'s @sektek/js:* branch below, not CORE_OPTIONS. Deliberately
-// excluded from the interactive wizard (see wizard-steps.ts's
-// pendingSpecs()) — CLI flags or a config file only, per the ticket
-// ("the wizard should not provide the option to add when being run
-// interactively").
+// User-supplied npm packages to add as dependencies/devDependencies, each
+// entry a `package-name` or `package-name@version` string. JS/TS-only, so
+// merged only into schemaFor()'s @sektek/js:* branch. Deliberately excluded
+// from the interactive wizard (see wizard-steps.ts's pendingSpecs()) — CLI
+// flags or a config file only.
 export const DEPENDENCY_OPTIONS: OptionSpec[] = [
   {
     key: 'dependencies',
@@ -160,9 +124,9 @@ export const DEPENDENCY_OPTIONS: OptionSpec[] = [
   },
 ];
 
-// Options for the (not-yet-built) `git` sub-generator. Reachable from both
-// @sektek/base:app and (transitively) @sektek/js:app, so merged into both
-// schemaFor() branches below.
+// Options for the `git` sub-generator, reachable from both @sektek/base:app
+// and (transitively) @sektek/js:app, so merged into both schemaFor()
+// branches below.
 export const GIT_OPTIONS: OptionSpec[] = [
   {
     // --no-git-init, not --git-init: this one defaults true and needs to
@@ -177,9 +141,9 @@ export const GIT_OPTIONS: OptionSpec[] = [
   },
 ];
 
-// Options for the (not-yet-built) `github` sub-generator. Reachable from
-// both @sektek/base:app and (transitively) @sektek/js:app, so merged into
-// both schemaFor() branches below.
+// Options for the `github` sub-generator, reachable from both
+// @sektek/base:app and (transitively) @sektek/js:app, so merged into both
+// schemaFor() branches below.
 export const GITHUB_OPTIONS: OptionSpec[] = [
   {
     key: 'createRepo',
@@ -259,10 +223,7 @@ export const CONFIG_OPTIONS: OptionSpec[] = [
  * Returns the option schema for a generator namespace, scoped per package
  * family (`@sektek/base:*` vs `@sektek/js:*`) rather than per individual
  * sub-generator, since composeWith passes the whole options object through
- * unchanged regardless of which one runs. GIT_OPTIONS, GITHUB_OPTIONS, and
- * CONFIG_OPTIONS are merged into both branches, since the `git`/`github`/
- * `config` sub-generators they back are reachable from both
- * `@sektek/base:app` and (transitively) `@sektek/js:app`.
+ * unchanged regardless of which one runs.
  *
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @returns The option specs relevant to that namespace's package family.
