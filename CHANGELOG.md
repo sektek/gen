@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.11.0](https://github.com/sektek/gen/compare/v0.10.0...v0.11.0) (2026-09-21)
+
+### Features
+
+* **gen:** prompt-type -> Ink component registry + capability wiring ([#17](https://github.com/sektek/gen/issues/17)) ([280ed43](https://github.com/sektek/gen/commit/280ed436cf9c3fe58c0a18195c3f1546f1948afb))
+
 ## [0.10.0](https://github.com/sektek/gen/compare/v0.9.0...v0.10.0) (2026-09-20)
 
 ### Features
