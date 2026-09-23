@@ -1,6 +1,7 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import type {
+  DestinationMode,
   GeneratorClass,
   GeneratorModule,
   Prompt,
@@ -68,29 +69,40 @@ async function loadGeneratorClass(path: string): Promise<GeneratorClass> {
   return mod.default;
 }
 
+async function generatorClassFor(namespace: string): Promise<GeneratorClass> {
+  const entry = REGISTRY.find(e => e.namespace === namespace);
+  if (!entry) {
+    throw new Error(`Unknown generator namespace: ${namespace}`);
+  }
+  return loadGeneratorClass(entry.path);
+}
+
 /**
  * The namespace's own `prompts()` — per `@sektek/generator`'s
  * `CoreGenerator`/`composites()` convention, a generator that correctly
  * overrides `prompts()` to aggregate its composed sub-generators' own
  * `prompts()` returns the complete set for that namespace, not just its
  * own. That's a convention each generator class has to actually follow,
- * though, not something this function can enforce or verify — a generator
- * that composes others in `taskInitializing()` but never overrides
- * `prompts()`/`composites()` (as of writing, `@sektek/js:app` and
- * `@sektek/js:workspace` in `@sektek/generator-js@0.8.0`) falls through to
- * `CoreGenerator`'s own default (`return [];`), so this silently returns
- * an empty/incomplete list for that namespace instead of throwing — known
- * gap, tracked in SEK-108.
+ * though, not something this function can enforce or verify — one that
+ * composes others without declaring `composites()` silently returns an
+ * incomplete list here instead of throwing.
  *
  * @param namespace - A namespace `REGISTRY` knows about (e.g. `@sektek/js:app`).
  * @returns That namespace's own `prompts()` result — complete only if the
  *   target generator class correctly implements the aggregation contract.
  */
 export async function promptsFor(namespace: string): Promise<Prompt[]> {
-  const entry = REGISTRY.find(e => e.namespace === namespace);
-  if (!entry) {
-    throw new Error(`Unknown generator namespace: ${namespace}`);
-  }
-  const generatorClass = await loadGeneratorClass(entry.path);
-  return generatorClass.prompts();
+  return (await generatorClassFor(namespace)).prompts();
+}
+
+/**
+ * The namespace's own `destinationMode()`.
+ *
+ * @param namespace - A namespace `REGISTRY` knows about (e.g. `@sektek/js:app`).
+ * @returns Whether that generator scaffolds in place or into a new project directory.
+ */
+export async function destinationModeFor(
+  namespace: string,
+): Promise<DestinationMode> {
+  return (await generatorClassFor(namespace)).destinationMode();
 }

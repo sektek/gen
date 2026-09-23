@@ -5,7 +5,12 @@ import type Environment from 'yeoman-environment';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 
-import { REGISTRY, promptsFor, registerAll } from './registry.js';
+import {
+  REGISTRY,
+  destinationModeFor,
+  promptsFor,
+  registerAll,
+} from './registry.js';
 
 use(chaiAsPromised);
 
@@ -61,6 +66,20 @@ describe('registry', function () {
       const prompts = await promptsFor('@sektek/base:license');
 
       expect(prompts.map(prompt => prompt.name)).to.include('author');
+    });
+  });
+
+  describe('destinationModeFor', function () {
+    it('reports inPlace for a generator with no destinationMode() override', async function () {
+      expect(await destinationModeFor('@sektek/base:readme')).to.deep.equal({
+        kind: 'inPlace',
+      });
+    });
+
+    it('reports newProjectDir for an app generator', async function () {
+      expect(await destinationModeFor('@sektek/js:app')).to.deep.equal({
+        kind: 'newProjectDir',
+      });
     });
   });
 

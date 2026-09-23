@@ -6,13 +6,13 @@ import chalk from 'chalk';
 import { resolveConfigDefaults } from '@sektek/generator';
 
 import { type OptionSpec, PACKAGE_SCOPE_OPTIONS } from './schema.js';
-import {
-  PROJECT_NAME_KEY,
-  loadGenerateProjectName,
-  resolveGeneratedDestination,
-} from './project-name.js';
+import { PROJECT_NAME_KEY, loadGenerateProjectName } from './project-name.js';
+import { REGISTRY, destinationModeFor } from './registry.js';
 import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
-import { REGISTRY } from './registry.js';
+import {
+  locateNewProject,
+  resolveDestinationRoot,
+} from './destination-root.js';
 import { applyGitInitImplications } from './git-init-implications.js';
 import { applyLicenseImplications } from './license-implications.js';
 import { deriveAuthorFromGitConfig } from './git-identity.js';
@@ -349,56 +349,6 @@ async function resolveAnswers({
   };
 }
 
-type DestinationRootArgs = {
-  destGiven: boolean;
-  dest: string;
-  chosenProjectName: unknown;
-  options: Record<string, unknown>;
-};
-
-/**
- * Resolves the directory to scaffold into: `dest` verbatim when `--dest`
- * was given explicitly, otherwise a generated one. When the wizard already
- * resolved a project name (`chosenProjectName`), that exact name is reused
- * (`maxAttempts: 1`) rather than generating a fresh one here — a name the
- * user explicitly typed or confirmed shouldn't be silently swapped out from
- * under them on a (rare, only-possible-on-a-GitHub-collision-now) retry the
- * way an entirely-automated run's name is.
- *
- * @param args - Whether/where to generate, plus what resolveGeneratedDestination() needs to check GitHub.
- * @param args.destGiven - Whether --dest was given explicitly on the CLI.
- * @param args.dest - The (possibly default) --dest value.
- * @param args.chosenProjectName - The wizard's answer for the project-name step, if it ran.
- * @param args.options - The fully-resolved generator options (for createRepo/repoOwner/githubToken).
- * @returns The destination directory to scaffold into.
- */
-async function resolveDestinationRoot({
-  destGiven,
-  dest,
-  chosenProjectName,
-  options,
-}: DestinationRootArgs): Promise<string> {
-  if (destGiven) {
-    return dest;
-  }
-
-  return resolveGeneratedDestination({
-    cwd: dest, // commander's declared default for --dest is already process.cwd()
-    // `options` is a Record<string, unknown> — a config file can put
-    // anything under these keys (e.g. `"createRepo": "false"`, a truthy
-    // *string*), so narrow at runtime rather than `as`-casting, which would
-    // just carry a wrongly-typed value straight through.
-    createRepo: options.createRepo === true,
-    repoOwner:
-      typeof options.repoOwner === 'string' ? options.repoOwner : undefined,
-    githubToken:
-      typeof options.githubToken === 'string' ? options.githubToken : undefined,
-    ...(typeof chosenProjectName === 'string'
-      ? { generateName: () => chosenProjectName, maxAttempts: 1 }
-      : {}),
-  });
-}
-
 type CliOptions = {
   yes?: boolean;
   install?: boolean;
@@ -491,15 +441,17 @@ export async function main(argv: string[]): Promise<void> {
 
   const destGiven = program.getOptionValueSource('dest') === 'cli';
   const interactive = isInteractive(yes);
+  const mode = await destinationModeFor(namespace);
+  const newProject =
+    !destGiven && mode.kind === 'newProjectDir'
+      ? locateNewProject(dest, mode)
+      : undefined;
 
-  // A generated project name is only ever needed when --dest is omitted
-  // (an explicit --dest already fully specifies the destination directory,
-  // same as always) — and only the interactive wizard can show it as a
-  // pre-filled, ctrl+r-regeneratable default; the automated path below
-  // still leaves picking one entirely to resolveGeneratedDestination(),
-  // unchanged.
+  // Only the interactive wizard can show a generated name as a pre-filled,
+  // ctrl+r-regeneratable default; the automated path leaves picking one
+  // entirely to resolveGeneratedDestination().
   const projectNameSpec =
-    interactive && !destGiven ? await buildProjectNameSpec() : undefined;
+    interactive && newProject ? await buildProjectNameSpec() : undefined;
 
   const { answers, explicitOptionKeys, chosenProjectName } =
     await resolveAnswers({
@@ -508,7 +460,7 @@ export async function main(argv: string[]): Promise<void> {
       configDefaults,
       interactive,
       projectNameSpec,
-      destCwd: dest, // commander's declared default for --dest is already process.cwd()
+      destCwd: newProject?.parentDir ?? dest,
     });
 
   const merged = {
@@ -532,6 +484,7 @@ export async function main(argv: string[]): Promise<void> {
   const destinationRoot = await resolveDestinationRoot({
     destGiven,
     dest,
+    mode,
     chosenProjectName,
     options,
   });

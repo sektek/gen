@@ -244,12 +244,18 @@ describe('cli', function () {
       rmSync(generatedCwd, { recursive: true, force: true });
     });
 
-    it('scaffolds into an auto-generated adjective-noun directory under cwd', async function () {
-      await main(['node', 'gen', 'base:editorconfig', '--yes']);
+    it('scaffolds a newProjectDir generator into an auto-generated adjective-noun directory under cwd', async function () {
+      await main(['node', 'gen', 'base:app', '--yes', '--no-git-init']);
 
       const entries = readdirSync(generatedCwd);
       expect(entries).to.have.lengthOf(1);
       expect(entries[0]).to.match(/^[a-z]+-[a-z]+$/);
+    });
+
+    it('scaffolds an inPlace generator straight into cwd', async function () {
+      await main(['node', 'gen', 'base:editorconfig', '--yes']);
+
+      expect(readdirSync(generatedCwd)).to.deep.equal(['.editorconfig']);
     });
 
     it('treats a non-boolean createRepo config value as false rather than truthy', async function () {
@@ -264,7 +270,7 @@ describe('cli', function () {
         JSON.stringify({ createRepo: 'false', repoOwner: 42 }),
       );
 
-      await main(['node', 'gen', 'base:editorconfig', '--yes']);
+      await main(['node', 'gen', 'base:app', '--yes', '--no-git-init']);
 
       const generated = readdirSync(generatedCwd).find(name =>
         /^[a-z]+-[a-z]+$/.test(name),
