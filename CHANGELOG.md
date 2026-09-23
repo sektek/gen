@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.12.0](https://github.com/sektek/gen/compare/v0.11.0...v0.12.0) (2026-09-23)
+
+### Features
+
+* **gen:** resolve the destination from the generator's destinationMode() ([a273ff7](https://github.com/sektek/gen/commit/a273ff71cf18197d4753046f7da8bb95f90e2815))
+
+### Bug Fixes
+
+* **deps:** bump @sektek/generator, generator-base and generator-js ranges ([f7c5c01](https://github.com/sektek/gen/commit/f7c5c01ac41e873ed659dcbe19cb37ceffd7875c))
+
 ## [0.11.0](https://github.com/sektek/gen/compare/v0.10.0...v0.11.0) (2026-09-21)
 
 ### Features
