@@ -252,6 +252,63 @@ describe('cli', function () {
       expect(entries[0]).to.match(/^[a-z]+-[a-z]+$/);
     });
 
+    it('persists the generated directory name as projectName', async function () {
+      await main(['node', 'gen', 'base:app', '--yes', '--no-git-init']);
+
+      const [generated] = readdirSync(generatedCwd);
+      expect(
+        readFileSync(join(generatedCwd, generated, 'gen.config.yaml'), 'utf8'),
+      ).to.match(new RegExp(`^projectName: "${generated}"$`, 'm'));
+    });
+
+    it('names the directory after an explicit --project-name', async function () {
+      await main([
+        'node',
+        'gen',
+        'base:app',
+        '--yes',
+        '--no-git-init',
+        '--project-name',
+        'my-thing',
+      ]);
+
+      expect(readdirSync(generatedCwd)).to.deep.equal(['my-thing']);
+    });
+
+    it('prefixes the generated name with an inherited config projectName', async function () {
+      writeFileSync(
+        join(generatedCwd, 'gen.config.json'),
+        JSON.stringify({ projectName: 'sektek-messaging' }),
+      );
+
+      await main(['node', 'gen', 'base:app', '--yes', '--no-git-init']);
+
+      const generated = readdirSync(generatedCwd).filter(
+        name => name !== 'gen.config.json',
+      );
+      expect(generated).to.have.lengthOf(1);
+      expect(generated[0]).to.match(/^sektek-messaging-[a-z]+-[a-z]+$/);
+    });
+
+    it('derives projectName from an explicit --dest instead of generating one', async function () {
+      await main([
+        'node',
+        'gen',
+        'base:app',
+        '--yes',
+        '--no-git-init',
+        '--dest',
+        join(generatedCwd, 'explicit-dir'),
+      ]);
+
+      expect(
+        readFileSync(
+          join(generatedCwd, 'explicit-dir', 'gen.config.yaml'),
+          'utf8',
+        ),
+      ).to.match(/^projectName: "explicit-dir"$/m);
+    });
+
     it('scaffolds an inPlace generator straight into cwd', async function () {
       await main(['node', 'gen', 'base:editorconfig', '--yes']);
 

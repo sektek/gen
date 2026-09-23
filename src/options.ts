@@ -20,10 +20,15 @@ import { type OptionSpec, schemaFor } from './schema.js';
  *
  * @param command - The commander command to add options to.
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
+ * @param extraSpecs - Specs registered alongside `schemaFor(namespace)`'s own.
  * @returns The same command, for chaining.
  */
-export function addSchemaOptions(command: Command, namespace: string): Command {
-  for (const spec of schemaFor(namespace)) {
+export function addSchemaOptions(
+  command: Command,
+  namespace: string,
+  extraSpecs: OptionSpec[] = [],
+): Command {
+  for (const spec of [...schemaFor(namespace), ...extraSpecs]) {
     if (spec.kind === 'list') {
       command.option(spec.flag, spec.helpText ?? spec.prompt);
       if (spec.repeatFlag) {
@@ -110,16 +115,18 @@ function repeatFlagValues(
  *
  * @param command - The parsed commander command (after `.parse()`).
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
+ * @param extraSpecs - Specs registered alongside `schemaFor(namespace)`'s own.
  * @returns Flag values actually given on the CLI, keyed by schema key.
  */
 export function flagsGivenFor(
   command: Command,
   namespace: string,
+  extraSpecs: OptionSpec[] = [],
 ): Record<string, unknown> {
   const opts = command.opts() as Record<string, unknown>;
   const given: Record<string, unknown> = {};
 
-  for (const spec of schemaFor(namespace)) {
+  for (const spec of [...schemaFor(namespace), ...extraSpecs]) {
     if (spec.kind === 'list') {
       const fromFlag = listFlagValues(command, opts, spec);
       const fromRepeatFlag = repeatFlagValues(command, opts, spec);

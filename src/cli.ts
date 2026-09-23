@@ -1,12 +1,19 @@
 /* eslint-disable no-console */
+import { basename, resolve as resolvePath } from 'node:path';
 import { homedir } from 'node:os';
 
+import {
+  type DestinationMode,
+  type PromptContext,
+  projectNamePrompt,
+  resolveConfigDefaults,
+} from '@sektek/generator';
+import { type ProviderFn, getComponent } from '@sektek/utility-belt';
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { resolveConfigDefaults } from '@sektek/generator';
+import { omit } from 'lodash-es';
 
 import { type OptionSpec, PACKAGE_SCOPE_OPTIONS } from './schema.js';
-import { PROJECT_NAME_KEY, loadGenerateProjectName } from './project-name.js';
 import { REGISTRY, destinationModeFor } from './registry.js';
 import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
 import {
@@ -17,6 +24,7 @@ import { applyGitInitImplications } from './git-init-implications.js';
 import { applyLicenseImplications } from './license-implications.js';
 import { deriveAuthorFromGitConfig } from './git-identity.js';
 import { explicitOptionKeysFromWizard } from './wizard-steps.js';
+import { promptsToOptionSpecs } from './prompt-adapter.js';
 import { resolvePackageScopeDefault } from './package-scope.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
@@ -208,28 +216,6 @@ function isInteractive(yes: boolean | undefined): boolean {
 }
 
 /**
- * Builds the synthetic, wizard-only spec for picking the destination
- * directory's name: pre-filled with a freshly generated `adjective-noun`
- * name, regeneratable via ctrl+r (see wizard.tsx's GeneratedTextInput).
- * Never registered with commander (schemaFor() doesn't include it) and
- * never seen by the automated `resolve()` path — only `runWizard()` gets it,
- * as a `leadingSpecs` entry.
- *
- * @returns The project-name spec to prepend to the wizard's schema.
- */
-async function buildProjectNameSpec(): Promise<OptionSpec> {
-  const generateName = await loadGenerateProjectName();
-  return {
-    key: PROJECT_NAME_KEY,
-    flag: '--project-name <value>',
-    prompt: 'Project name',
-    kind: 'text',
-    default: generateName(),
-    capabilities: [{ type: 'reloadable', provider: generateName }],
-  };
-}
-
-/**
  * The automated (`!interactive`) path's equivalent of `packageScope`'s
  * `generateDefaultAsync` — `resolve()` never reads that (only a spec's
  * static `default`), and there's no wizard on this path to compute it live
@@ -273,79 +259,120 @@ type ResolveAnswersArgs = {
   flagsGiven: Record<string, unknown>;
   configDefaults: Record<string, unknown>;
   interactive: boolean;
-  // The project-name step to prepend to the wizard's schema, if one is
-  // needed (see `buildProjectNameSpec()`) — only ever set when `interactive`
-  // is also true.
-  projectNameSpec: OptionSpec | undefined;
+  promptSpecs: OptionSpec[];
+  promptContext: Pick<PromptContext, 'configDefaults' | 'workspace'>;
   destCwd: string;
 };
 
 type ResolvedAnswers = {
   answers: Record<string, unknown>;
   explicitOptionKeys: string[];
-  // The wizard's project-name answer, if its step ran; `undefined` on the
-  // automated path or when no project-name step was needed. Consumed only
-  // by `resolveDestinationRoot()` — never a real generator option.
-  chosenProjectName: unknown;
 };
 
 /**
  * Resolves this run's answers: the interactive wizard (seeded with
- * `flagsGiven`, prefixed with a project-name step when one is needed) or,
- * automated, `flagsGiven` folded straight through `resolve()`.
+ * `flagsGiven`, asking `promptSpecs` first) or, automated, `flagsGiven`
+ * folded straight through `resolve()`.
  *
  * @param args - Everything either path needs.
  * @param args.namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @param args.flagsGiven - Option values already supplied via CLI flags.
  * @param args.configDefaults - Values resolved via `resolveConfigDefaults()`.
  * @param args.interactive - Whether to run the interactive wizard at all.
- * @param args.projectNameSpec - The project-name step to prepend, if the wizard needs one.
+ * @param args.promptSpecs - Prompt-sourced specs schema.ts doesn't cover (see `promptSpecsFor()`).
+ * @param args.promptContext - What prompt providers see beyond the running answers.
  * @param args.destCwd - The directory a project-name answer would be created under.
- * @returns The fully-resolved answers, which option keys were explicit, and the wizard's project-name answer, if any.
+ * @returns The fully-resolved answers, and which option keys were explicit.
  */
 async function resolveAnswers({
   namespace,
   flagsGiven,
   configDefaults,
   interactive,
-  projectNameSpec,
+  promptSpecs,
+  promptContext,
   destCwd,
 }: ResolveAnswersArgs): Promise<ResolvedAnswers> {
   if (!interactive) {
     return {
-      answers: resolve(
-        namespace,
-        flagsGiven,
-        configDefaults,
-        await packageScopeExtraSpecs(namespace, flagsGiven, configDefaults),
-      ),
+      answers: resolve(namespace, flagsGiven, configDefaults, [
+        ...(await packageScopeExtraSpecs(
+          namespace,
+          flagsGiven,
+          configDefaults,
+        )),
+        ...promptSpecs,
+      ]),
       explicitOptionKeys: Object.keys(flagsGiven),
-      chosenProjectName: undefined,
     };
   }
 
   const wizardResult = await runWizard(namespace, flagsGiven, configDefaults, {
-    leadingSpecs: projectNameSpec ? [projectNameSpec] : [],
+    leadingSpecs: promptSpecs,
     destCwd,
+    promptContext,
   });
-
-  // The chosen project name only picks the destination directory (see
-  // resolveDestinationRoot()) — it's never a real generator option, so
-  // it's pulled back out of both the answers and the answered-keys before
-  // either feeds resolve()/explicitOptionKeysFromWizard().
-  const { [PROJECT_NAME_KEY]: chosenProjectName, ...rest } =
-    wizardResult.answers;
 
   return {
     // The wizard never prompts for a 'list' spec, so its answers alone
     // would leave dependencies/devDependencies undefined; resolve() layers
     // in their schema/config default, same as the non-interactive path.
-    answers: resolve(namespace, rest, configDefaults),
+    answers: resolve(
+      namespace,
+      wizardResult.answers,
+      configDefaults,
+      promptSpecs,
+    ),
     explicitOptionKeys: explicitOptionKeysFromWizard(
       flagsGiven,
-      wizardResult.answeredKeys.filter(key => key !== PROJECT_NAME_KEY),
+      wizardResult.answeredKeys,
     ),
-    chosenProjectName,
+  };
+}
+
+/**
+ * The prompt-sourced specs a namespace gets on top of its schema.ts ones:
+ * `projectNamePrompt` for a `newProjectDir` generator, nothing otherwise.
+ *
+ * @param mode - The target generator's `destinationMode()`.
+ * @param context - What `projectNamePrompt`'s provider resolves its default against.
+ * @returns The specs to register, prompt for and resolve alongside the schema.
+ */
+function promptSpecsFor(
+  mode: DestinationMode,
+  context: PromptContext,
+): Promise<OptionSpec[]> {
+  return promptsToOptionSpecs(
+    mode.kind === 'newProjectDir' ? [projectNamePrompt] : [],
+    context,
+  );
+}
+
+/**
+ * The config-default layer: the git-derived author, overridden by whatever
+ * `gen.config.*` files are found from cwd upward and in the home directory.
+ *
+ * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
+ * @returns The merged config defaults.
+ */
+async function loadConfigDefaults(
+  namespace: string,
+): Promise<Record<string, unknown>> {
+  const gitIdentityDefaults = { author: await deriveAuthorFromGitConfig() };
+  const configFromFile = await resolveConfigDefaults(namespace, {
+    cwd: process.cwd(),
+    homeDir: homedir(),
+  });
+  // A JS config file can define a key as undefined (e.g. derived from an
+  // unset env var) — filtered out here for the same reason resolve() does
+  // it (options.ts): an own `undefined` key would otherwise win a spread
+  // over gitIdentityDefaults's real value, unlike a key that's simply
+  // absent.
+  return {
+    ...gitIdentityDefaults,
+    ...Object.fromEntries(
+      Object.entries(configFromFile).filter(([, value]) => value !== undefined),
+    ),
   };
 }
 
@@ -412,56 +439,66 @@ export async function main(argv: string[]): Promise<void> {
       `\nExample:\n  $ gen ${namespace} --yes --dest ./my-project\n`,
     );
 
-  addSchemaOptions(program, namespace);
+  const mode = await destinationModeFor(namespace);
+  // Only the flag shape matters before parsing; defaults are re-resolved
+  // below once configDefaults and the workspace are known.
+  const flagSpecs = await promptSpecsFor(mode, {
+    answers: {},
+    flagsGiven: {},
+    configDefaults: {},
+  });
+
+  addSchemaOptions(program, namespace, flagSpecs);
   program.parse(argv);
 
   const { yes, install, force, dest } = program.opts<CliOptions>();
+  const destGiven = program.getOptionValueSource('dest') === 'cli';
 
   // Only what the user actually typed, schema-driven (including the
   // two-flags-one-key merge for `kind: 'list'` specs) — see
   // flagsGivenFor()'s own doc comment.
-  const flagsGiven = flagsGivenFor(program, namespace);
+  const flagsGiven = flagsGivenFor(program, namespace, flagSpecs);
 
-  const gitIdentityDefaults = { author: await deriveAuthorFromGitConfig() };
-  const configFromFile = await resolveConfigDefaults(namespace, {
-    cwd: process.cwd(),
-    homeDir: homedir(),
-  });
-  // A JS config file can define a key as undefined (e.g. derived from an
-  // unset env var) — filtered out here for the same reason resolve() does
-  // it (options.ts): an own `undefined` key would otherwise win a spread
-  // over gitIdentityDefaults's real value, unlike a key that's simply
-  // absent.
-  const configDefaults = {
-    ...gitIdentityDefaults,
-    ...Object.fromEntries(
-      Object.entries(configFromFile).filter(([, value]) => value !== undefined),
-    ),
-  };
+  // An explicit --dest already names the project directory, so the
+  // project name follows it rather than being asked for — otherwise
+  // options.projectName and the generator's projectSlug could disagree.
+  if (mode.kind === 'newProjectDir' && destGiven) {
+    flagsGiven.projectName ??= basename(resolvePath(dest));
+  }
 
-  const destGiven = program.getOptionValueSource('dest') === 'cli';
+  const configDefaults = await loadConfigDefaults(namespace);
+
   const interactive = isInteractive(yes);
-  const mode = await destinationModeFor(namespace);
   const newProject =
     !destGiven && mode.kind === 'newProjectDir'
       ? locateNewProject(dest, mode)
       : undefined;
 
-  // Only the interactive wizard can show a generated name as a pre-filled,
-  // ctrl+r-regeneratable default; the automated path leaves picking one
-  // entirely to resolveGeneratedDestination().
-  const projectNameSpec =
-    interactive && newProject ? await buildProjectNameSpec() : undefined;
+  const promptContext = {
+    configDefaults,
+    workspace: newProject?.workspace,
+  };
+  const context: PromptContext = {
+    ...promptContext,
+    answers: flagsGiven,
+    flagsGiven,
+  };
+  const promptSpecs = await promptSpecsFor(mode, context);
 
-  const { answers, explicitOptionKeys, chosenProjectName } =
-    await resolveAnswers({
-      namespace,
-      flagsGiven,
-      configDefaults,
-      interactive,
-      projectNameSpec,
-      destCwd: newProject?.parentDir ?? dest,
-    });
+  // An inherited projectName (e.g. a workspace's own gen.config.*) is
+  // only ever a prefix for projectNamePrompt's provider, never this
+  // project's own name.
+  const optionConfigDefaults = omit(configDefaults, 'projectName');
+
+  const { answers, explicitOptionKeys } = await resolveAnswers({
+    namespace,
+    flagsGiven,
+    configDefaults: optionConfigDefaults,
+    interactive,
+    promptSpecs,
+    promptContext,
+    destCwd: newProject?.parentDir ?? dest,
+  });
 
   const merged = {
     ...answers,
@@ -481,13 +518,30 @@ export async function main(argv: string[]): Promise<void> {
     explicitOptionKeys,
   };
 
+  const getProjectName: ProviderFn<string, PromptContext> = getComponent(
+    projectNamePrompt.provider,
+    'get',
+  );
   const destinationRoot = await resolveDestinationRoot({
     destGiven,
     dest,
     mode,
-    chosenProjectName,
+    projectName: explicitOptionKeys.includes('projectName')
+      ? String(options.projectName)
+      : undefined,
+    generateName: () => getProjectName(context),
     options,
   });
+
+  // The directory actually created is the source of truth (a generated
+  // name may have been retried past a collision), and it's persisted like
+  // a chosen value so a workspace's gen.config.* can prefix its members.
+  if (newProject) {
+    options.projectName = basename(destinationRoot);
+    options.explicitOptionKeys = [
+      ...new Set([...explicitOptionKeys, 'projectName']),
+    ];
+  }
 
   await runGenerator(namespace, options, {
     destinationRoot,

@@ -41,33 +41,19 @@ function assertSafePathSegment(name: string): void {
   }
 }
 
-// The key the wizard's synthetic project-name step (see cli.ts) records its
-// answer under. Not a real generator option — cli.ts pulls it back out of
-// the wizard's answers before they're passed to runGenerator, using it only
-// to build destinationRoot.
+// Matches `projectNamePrompt`'s own `name` — the wizard validates this
+// step's answer against the filesystem (see wizard.tsx's submitGenerated).
 export const PROJECT_NAME_KEY = 'projectName';
-
-/**
- * Dynamically imports `@sektek/generator`'s `randomProjectName`, the default
- * `generateName()` used both by `resolveGeneratedDestination` and by the
- * wizard's project-name step (cli.ts) — factored out so both call sites
- * share one lazy import instead of each re-importing it separately.
- *
- * @returns A function producing a fresh `adjective-noun` name each call.
- */
-export async function loadGenerateProjectName(): Promise<() => string> {
-  return (await import('@sektek/generator/project-name')).randomProjectName;
-}
 
 export type ResolveGeneratedDestinationOptions = {
   cwd: string;
   createRepo?: boolean;
   repoOwner?: string;
   githubToken?: string;
-  // Test-only DI seams, mirroring GithubGeneratorOptions#githubClient.
-  githubClient?: GithubClient;
-  generateName?: () => string;
+  generateName?: () => string | PromiseLike<string>;
   maxAttempts?: number;
+  // Test-only DI seam, mirroring GithubGeneratorOptions#githubClient.
+  githubClient?: GithubClient;
 };
 
 /**
@@ -90,7 +76,9 @@ export async function resolveGeneratedDestination(
   opts: ResolveGeneratedDestinationOptions,
 ): Promise<string> {
   const maxAttempts = opts.maxAttempts ?? 20;
-  const generateName = opts.generateName ?? (await loadGenerateProjectName());
+  const generateName =
+    opts.generateName ??
+    (await import('@sektek/generator/project-name')).randomProjectName;
   const client = opts.createRepo
     ? (opts.githubClient ??
       (await import('@sektek/generator-base')).defaultGithubClient())
@@ -100,7 +88,7 @@ export async function resolveGeneratedDestination(
     : undefined;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const name = generateName();
+    const name = await generateName();
     assertSafePathSegment(name);
     const dest = resolve(opts.cwd, name);
 
