@@ -1,6 +1,7 @@
 import { Box, Static, Text, useInput } from 'ink';
 import { type ProviderFn, getComponent } from '@sektek/utility-belt';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import type { PromptContext } from '@sektek/generator';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import chalk from 'chalk';
@@ -59,6 +60,7 @@ export type WizardProps = {
   // the directory that name would be created under, for projectNameError()'s
   // local collision check. Unused by every other spec kind.
   destCwd?: string;
+  promptContext?: Pick<PromptContext, 'configDefaults' | 'workspace'>;
 };
 
 // Not unit-tested: ink TTY rendering is impractical to exercise outside a
@@ -77,10 +79,18 @@ export type WizardProps = {
  *   from `seed` or merely implied by an implied-answers rule, e.g.
  *   `licenseImpliedAnswers`/`gitInitImpliedAnswers`/`createRepoImpliedAnswers`).
  * @param props.destCwd - The directory the project-name step's answer would be created under.
+ * @param props.promptContext - The `configDefaults`/`workspace` half of the
+ *   `PromptContext` a reloadable capability's provider is called with.
  * @returns The scrolled-back answers plus the current prompt, or just the
  * scrollback once every step is answered.
  */
-export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
+export function Wizard({
+  schema,
+  seed,
+  onComplete,
+  destCwd,
+  promptContext = { configDefaults: {} },
+}: WizardProps) {
   const [answers, setAnswers] = useState<Record<string, unknown>>(() =>
     initialAnswers(seed, schema),
   );
@@ -137,6 +147,16 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
     generationRef.current++;
   }
 
+  const reloadWith = (
+    reload: NonNullable<ReturnType<typeof reloadableCapability>>,
+  ): unknown => {
+    const get: ProviderFn<unknown, PromptContext> = getComponent(
+      reload.provider,
+      'get',
+    );
+    return get({ ...promptContext, answers, flagsGiven: seed });
+  };
+
   const resolving =
     pendingAsyncKey !== undefined && pendingAsyncKey === spec?.key;
   const isPristine = textValue === dynamicDefault;
@@ -173,7 +193,7 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
 
       const key = spec.key;
       const result = reload
-        ? (getComponent(reload.provider, 'get') as ProviderFn<unknown>)()
+        ? reloadWith(reload)
         : spec.generateDefaultAsync!(answers);
 
       // A synchronous provider (e.g. the project-name step's own
@@ -272,8 +292,7 @@ export function Wizard({ schema, seed, onComplete, destCwd }: WizardProps) {
     // overwriting a newer value.
     const token = ++generationRef.current;
     void (async () => {
-      const get = getComponent(reload.provider, 'get') as ProviderFn<unknown>;
-      const next = String(await get());
+      const next = String(await reloadWith(reload));
       if (token !== generationRef.current) {
         return;
       }

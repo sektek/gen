@@ -7,7 +7,11 @@ import { mergeByName, promptsToOptionSpecs } from './prompt-adapter.js';
 
 use(chaiAsPromised);
 
-const CONTEXT: PromptContext = { answers: {}, flagsGiven: {} };
+const CONTEXT: PromptContext = {
+  answers: {},
+  flagsGiven: {},
+  configDefaults: {},
+};
 
 // Mirrors git/index.spec.ts's own `provide` helper: a Prompt's
 // includePrompt/provider fields are Components (either a bare function or
@@ -70,6 +74,7 @@ describe('prompt-adapter', function () {
         await test({
           answers: { wantsLicense: false, wantsPackage: false },
           flagsGiven: {},
+          configDefaults: {},
         }),
       ).to.equal(false);
       // ...but anyOf includes it once either does.
@@ -77,12 +82,14 @@ describe('prompt-adapter', function () {
         await test({
           answers: { wantsLicense: true, wantsPackage: false },
           flagsGiven: {},
+          configDefaults: {},
         }),
       ).to.equal(true);
       expect(
         await test({
           answers: { wantsLicense: false, wantsPackage: true },
           flagsGiven: {},
+          configDefaults: {},
         }),
       ).to.equal(true);
     });
@@ -142,6 +149,7 @@ describe('prompt-adapter', function () {
       const [spec] = await promptsToOptionSpecs(prompts, {
         answers: { name: 'Ada Lovelace' },
         flagsGiven: {},
+        configDefaults: {},
       });
 
       expect(spec.default).to.equal('Ada Lovelace');
@@ -204,6 +212,7 @@ describe('prompt-adapter', function () {
         await promptsToOptionSpecs(prompts, {
           answers: { createRepo: true },
           flagsGiven: {},
+          configDefaults: {},
         }),
       ).to.have.lengthOf(1);
     });
