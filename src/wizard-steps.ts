@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { PromptCapability } from '@sektek/generator';
+import type { PromptCapability, PromptContext } from '@sektek/generator';
 
+import { PROJECT_NAME_KEY, isSafePathSegment } from './project-name.js';
 import type { OptionSpec } from './schema.js';
-import { isSafePathSegment } from './project-name.js';
 
 /**
  * The `spec.capabilities` entry of the given `type`, if any — the lookup
@@ -44,6 +44,57 @@ export function reloadableCapability(spec: OptionSpec) {
  */
 export function clearableCapability(spec: OptionSpec) {
   return capabilityOf(spec, 'clearable');
+}
+
+/**
+ * Whether ctrl+x should be wired up for `spec`'s field. The project-name
+ * step has no `clearable` capability of its own — an empty project name is
+ * never a valid stored value, so there's nothing for `clearable`'s `value`
+ * fallback to mean for it — but still supports ctrl+x, via the prefix-aware
+ * handling in wizard.tsx's GeneratedTextInput rather than the generic
+ * `clearable` capability.
+ *
+ * @param spec - The option spec to check.
+ * @returns Whether the field should treat ctrl+x as "clear".
+ */
+export function isClearable(spec: OptionSpec): boolean {
+  return Boolean(clearableCapability(spec)) || spec.key === PROJECT_NAME_KEY;
+}
+
+/**
+ * The workspace/config prefix a freshly-generated project name would carry
+ * — mirrors `@sektek/generator`'s own `projectNamePrompt` prefix logic
+ * exactly, duplicated here rather than imported since the wizard only needs
+ * it for the ctrl+x/ctrl+r UX below, never to compute the value actually
+ * submitted (that's still the provider's job).
+ *
+ * @param context - The configDefaults/workspace half of the running PromptContext.
+ * @returns The prefix a freshly-generated project name would carry, if any.
+ */
+export function projectNamePrefix(
+  context: Pick<PromptContext, 'configDefaults' | 'workspace'>,
+): string | undefined {
+  const { projectName } = context.configDefaults;
+  if (typeof projectName === 'string' && projectName !== '') {
+    return projectName;
+  }
+  return context.workspace?.name;
+}
+
+/**
+ * Reintroduces a suppressed project-name prefix the moment typing resumes
+ * on a cleared field (wizard.tsx's GeneratedTextInput) — mirrors the same
+ * `${prefix}-${randomProjectName()}` joiner `@sektek/generator`'s own
+ * `projectNamePrompt` uses, so the reintroduced text reads exactly like a
+ * freshly-generated prefixed default would.
+ *
+ * @param prefix - The workspace/config prefix to reintroduce.
+ * @param input - The character(s) just typed.
+ * @returns The resulting value and cursor position.
+ */
+export function reintroducePrefix(prefix: string, input: string): EditResult {
+  const value = `${prefix}-${input}`;
+  return { value, cursorOffset: value.length };
 }
 
 export type WizardChoice = {
@@ -485,15 +536,18 @@ export type Hint = {
  * @param spec - The option spec currently being prompted for, if any.
  * @param isPristine - For a `reloadable`/`clearable`-capable spec (or one
  *   with `generateDefaultAsync`), whether its field still shows the
- *   resolved default unedited — the `^R` hint only applies (and ctrl+r only
- *   actually regenerates, see `GeneratedTextInput`) while true, and
- *   likewise for `^X` (`clearable`, ctrl+x) clearing the field; ignored for
- *   every other spec kind.
+ *   resolved default unedited — `^X` (ctrl+x, see `isClearable`) only
+ *   applies while true; ignored for every other spec kind.
+ * @param canRegenerate - Whether ctrl+r currently regenerates — normally
+ *   just `isPristine`, but the project-name step's prefix-aware clear also
+ *   allows it on an empty, cleared field (see wizard.tsx's
+ *   GeneratedTextInput). Defaults to `isPristine`.
  * @returns The hints to show in the status bar, in display order.
  */
 export function hintsFor(
   spec: OptionSpec | undefined,
   isPristine = false,
+  canRegenerate = isPristine,
 ): Hint[] {
   if (!spec) {
     return [];
@@ -508,11 +562,9 @@ export function hintsFor(
 
   return [
     { key: 'Enter', label: 'confirm' },
-    ...(reloadableCapability(spec) && isPristine
+    ...(reloadableCapability(spec) && canRegenerate
       ? [{ key: '^R', label: 'new name' }]
       : []),
-    ...(clearableCapability(spec) && isPristine
-      ? [{ key: '^X', label: 'clear' }]
-      : []),
+    ...(isClearable(spec) && isPristine ? [{ key: '^X', label: 'clear' }] : []),
   ];
 }
