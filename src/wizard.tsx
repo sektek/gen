@@ -680,10 +680,12 @@ function GeneratedTextInput({
     setCursorOffset(next.cursorOffset);
   };
 
-  // Once prefixSuppressed, backspacing to empty must land on '' rather than
-  // restoring the (still-prefixed) dynamicDefault — otherwise the clear
-  // wouldn't "stick" (requirement 3).
-  const backspaceRestoreTarget = prefixSuppressed ? '' : dynamicDefault;
+  // Gated on `prefix !== undefined`, same as typeInput below: prefixSuppressed
+  // is wizard-wide state, but only the project-name step has a prefix to
+  // suppress. Without this gate, clearing any other clearable field (e.g.
+  // packageScope) would wrongly restore '' instead of its dynamicDefault.
+  const backspaceRestoreTarget =
+    prefix !== undefined && prefixSuppressed ? '' : dynamicDefault;
 
   // Extracted to keep useInput's callback under the complexity limit;
   // reintroduces the prefix when typing resumes on a cleared field
