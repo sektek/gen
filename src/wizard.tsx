@@ -110,13 +110,9 @@ export function Wizard({
     undefined,
   );
   const [error, setError] = useState<string | undefined>(undefined);
-  // Set by a ctrl+x clear on the project-name step (see GeneratedTextInput's
-  // onClear) and never unset until the step changes — a regenerate after
-  // this point draws from a prefix-stripped context, and typing on an empty
-  // field reintroduces the prefix inline, but the suppression itself
-  // "sticks" for the rest of the step, matching SEK-118's spec. Harmless
-  // for every other reloadable/clearable spec: they have no prefix
-  // (`prefix` below stays undefined for them), so nothing reads this flag.
+  // Set by a ctrl+x clear on the project-name step; stays true for the rest
+  // of the step so a regenerate keeps drawing from a prefix-stripped
+  // context — the clear "sticks" rather than resetting on ctrl+r.
   const [prefixSuppressed, setPrefixSuppressed] = useState(false);
   const [completed, setCompleted] = useState<CompletedStep[]>([]);
   // The step key textValue/dynamicDefault/pendingAsyncKey/error above are
@@ -185,10 +181,8 @@ export function Wizard({
   const resolving =
     pendingAsyncKey !== undefined && pendingAsyncKey === spec?.key;
   const isPristine = textValue === dynamicDefault;
-  // ctrl+r's status-bar hint (and, mirrored in GeneratedTextInput, the
-  // keystroke itself) also fires on an empty, prefix-suppressed field —
-  // requirement 3's "the clear sticks across regeneration" needs ctrl+r to
-  // keep working right after a clear, not just while still pristine.
+  // Also true on an empty, prefix-suppressed field — ctrl+r must keep
+  // working right after a clear, not just while pristine (requirement 3).
   const canRegenerate =
     isPristine ||
     (prefix !== undefined && prefixSuppressed && textValue === '');
@@ -323,11 +317,8 @@ export function Wizard({
     // so an out-of-order or abandoned completion drops itself instead of
     // overwriting a newer value.
     const token = ++generationRef.current;
-    // Once the prefix has been cleared, every subsequent regenerate draws
-    // from a prefix-stripped context — the same provider that produced the
-    // prefixed default naturally produces a plain one once configDefaults/
-    // workspace no longer carry a prefix to find (see project-name-prompt.ts's
-    // prefixFor).
+    // A prefix-stripped context makes the same provider naturally produce
+    // a plain name once cleared (see prefixFor() in project-name-prompt.ts).
     const context =
       prefix !== undefined && prefixSuppressed
         ? { configDefaults: {} }
@@ -408,7 +399,6 @@ type RenderInputArgs = {
   isPristine: boolean;
   resolving: boolean;
   error: string | undefined;
-  // project-name step only; undefined for every other spec.
   prefix: string | undefined;
   prefixSuppressed: boolean;
   canRegenerate: boolean;
@@ -602,14 +592,9 @@ type GeneratedTextInputProps = {
   dynamicDefault: string;
   // Whether ctrl+x clears the field to '' outright.
   allowClear: boolean;
-  // project-name step only (SEK-118); undefined disables the whole
-  // prefix-aware clear/retype dance below, leaving plain reloadable/
-  // clearable behavior unchanged for every other spec.
   prefix: string | undefined;
   prefixSuppressed: boolean;
-  // Wizard's own computed gate for ctrl+r — isPristine, or (with `prefix`
-  // set) an empty, prefix-suppressed field; see Wizard's matching `hintsFor`
-  // call, which the status bar's `^R` hint must stay in sync with.
+  // Wizard computes this to match its own hintsFor() call for the ^R hint.
   canRegenerate: boolean;
   onChange: (value: string) => void;
   onRegenerate: () => void;
@@ -695,16 +680,14 @@ function GeneratedTextInput({
     setCursorOffset(next.cursorOffset);
   };
 
-  // Once prefixSuppressed, backspacing the reintroduced prefix text back
-  // down to empty must land on '' — not resurrect the (still-prefixed)
-  // dynamicDefault the way a plain reloadable spec's backspace-to-empty
-  // does — or the clear wouldn't "stick" per SEK-118's requirement 3.
+  // Once prefixSuppressed, backspacing to empty must land on '' rather than
+  // restoring the (still-prefixed) dynamicDefault — otherwise the clear
+  // wouldn't "stick" (requirement 3).
   const backspaceRestoreTarget = prefixSuppressed ? '' : dynamicDefault;
 
-  // Split out of useInput's callback to keep its cognitive complexity down:
-  // resuming typing on a cleared, prefix-suppressed field reintroduces the
-  // prefix (requirement 4) instead of the usual pristine-replace/insert
-  // behavior.
+  // Extracted to keep useInput's callback under the complexity limit;
+  // reintroduces the prefix when typing resumes on a cleared field
+  // (requirement 4) instead of the usual pristine-replace/insert behavior.
   const typeInput = (input: string): EditResult =>
     prefix !== undefined && prefixSuppressed && value === ''
       ? reintroducePrefix(prefix, input)
