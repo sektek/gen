@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
-import { basename, resolve as resolvePath } from 'node:path';
+import { basename, dirname, resolve as resolvePath } from 'node:path';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 import {
@@ -348,31 +349,54 @@ function promptSpecsFor(
   );
 }
 
+// A JS config file can define a key as undefined (e.g. derived from an
+// unset env var) — dropped for the same reason resolve() does it
+// (options.ts): an own `undefined` key would otherwise win a spread over a
+// real value from an earlier layer, unlike a key that's simply absent.
+function definedEntries(
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(config).filter(([, value]) => value !== undefined),
+  );
+}
+
+function nearestExistingDir(path: string): string {
+  let dir = path;
+  while (!existsSync(dir) && dirname(dir) !== dir) {
+    dir = dirname(dir);
+  }
+  return dir;
+}
+
 /**
  * The config-default layer: the git-derived author, overridden by whatever
- * `gen.config.*` files are found from cwd upward and in the home directory.
+ * `gen.config.*` files are found from cwd upward and in the home directory,
+ * overridden in turn by those found from an explicit `--dest` upward.
  *
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
+ * @param explicitDest - The `--dest` value, when given explicitly; may not exist yet.
  * @returns The merged config defaults.
  */
 async function loadConfigDefaults(
   namespace: string,
+  explicitDest: string | undefined,
 ): Promise<Record<string, unknown>> {
   const gitIdentityDefaults = { author: await deriveAuthorFromGitConfig() };
-  const configFromFile = await resolveConfigDefaults(namespace, {
+  const fromCwd = await resolveConfigDefaults(namespace, {
     cwd: process.cwd(),
     homeDir: homedir(),
   });
-  // A JS config file can define a key as undefined (e.g. derived from an
-  // unset env var) — filtered out here for the same reason resolve() does
-  // it (options.ts): an own `undefined` key would otherwise win a spread
-  // over gitIdentityDefaults's real value, unlike a key that's simply
-  // absent.
+  const destDir = explicitDest && nearestExistingDir(resolvePath(explicitDest));
+  // The home directory is already covered by the cwd search; passing
+  // destDir as homeDir keeps it from being re-applied over cwd's configs.
+  const fromDest = destDir
+    ? await resolveConfigDefaults(namespace, { cwd: destDir, homeDir: destDir })
+    : {};
   return {
     ...gitIdentityDefaults,
-    ...Object.fromEntries(
-      Object.entries(configFromFile).filter(([, value]) => value !== undefined),
-    ),
+    ...definedEntries(fromCwd),
+    ...definedEntries(fromDest),
   };
 }
 
@@ -466,7 +490,10 @@ export async function main(argv: string[]): Promise<void> {
     flagsGiven.projectName ??= basename(resolvePath(dest));
   }
 
-  const configDefaults = await loadConfigDefaults(namespace);
+  const configDefaults = await loadConfigDefaults(
+    namespace,
+    destGiven ? dest : undefined,
+  );
 
   const interactive = isInteractive(yes);
   const newProject =

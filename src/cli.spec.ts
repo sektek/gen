@@ -175,6 +175,78 @@ describe('cli', function () {
     });
   });
 
+  describe('main (config defaults searched from an explicit --dest)', function () {
+    let otherCwd: string;
+    let homeDir: string;
+    let destParent: string;
+    let originalCwd: string;
+    let originalHome: string | undefined;
+
+    beforeEach(function () {
+      otherCwd = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-other-'));
+      homeDir = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-home-'));
+      destParent = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-destcfg-'));
+      originalCwd = process.cwd();
+      originalHome = process.env.HOME;
+
+      writeFileSync(
+        join(destParent, 'gen.config.json'),
+        JSON.stringify({ license: 'Apache-2.0' }),
+      );
+      writeFileSync(
+        join(otherCwd, 'gen.config.json'),
+        JSON.stringify({
+          license: 'MIT',
+          author: 'Cwd Author <cwd@example.com>',
+        }),
+      );
+
+      process.chdir(otherCwd);
+      process.env.HOME = homeDir;
+    });
+
+    afterEach(function () {
+      process.chdir(originalCwd);
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
+      rmSync(otherCwd, { recursive: true, force: true });
+      rmSync(homeDir, { recursive: true, force: true });
+      rmSync(destParent, { recursive: true, force: true });
+    });
+
+    const packageJsonAt = async (dest: string) => {
+      await main([
+        'node',
+        'gen',
+        'js:base-package',
+        '--yes',
+        '--dest',
+        dest,
+        '--package-scope',
+        'acme',
+      ]);
+      return JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8'));
+    };
+
+    it('lets a gen.config.* in the --dest directory override cwd', async function () {
+      expect((await packageJsonAt(destParent)).license).to.equal('Apache-2.0');
+    });
+
+    it('picks up a gen.config.* above a --dest that does not exist yet', async function () {
+      const pkg = await packageJsonAt(join(destParent, 'new-project'));
+      expect(pkg.license).to.equal('Apache-2.0');
+    });
+
+    it('still applies cwd config keys the --dest config does not set', async function () {
+      expect((await packageJsonAt(destParent)).author).to.equal(
+        'Cwd Author <cwd@example.com>',
+      );
+    });
+  });
+
   describe('main (git-derived author, automated mode)', function () {
     let destinationRoot: string;
 
