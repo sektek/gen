@@ -1,3 +1,4 @@
+import type { PromptContext } from '@sektek/generator';
 import { createElement } from 'react';
 import { render } from 'ink';
 
@@ -13,14 +14,14 @@ export type WizardResult = {
 };
 
 export type RunWizardOptions = {
-  // Prepended ahead of the namespace's own schema — used by cli.ts for the
-  // project-name step, which isn't part of any namespace's schema (it picks
-  // the destination directory's name, not a generator option).
+  // Prompt-sourced specs (see prompt-adapter.ts) that schema.ts doesn't
+  // cover, asked ahead of the namespace's own schema.
   leadingSpecs?: OptionSpec[];
   // Required whenever `leadingSpecs` includes the project-name step, for
   // validating a candidate name against the filesystem — see wizard.tsx's
   // `destCwd` prop.
   destCwd?: string;
+  promptContext?: Pick<PromptContext, 'configDefaults' | 'workspace'>;
 };
 
 /**
@@ -30,7 +31,7 @@ export type RunWizardOptions = {
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @param seed - Option values already supplied via CLI flags, pre-filled/skipped by the wizard.
  * @param configDefaults - Values resolved via `resolveConfigDefaults()`; pre-fill the same way `spec.default` does, but never skip a step the way `seed` does.
- * @param options - Extra specs to run ahead of the namespace's schema, plus whatever they need (e.g. `destCwd`).
+ * @param options - Extra specs to run ahead of the namespace's schema, plus whatever they need (e.g. `destCwd`, `promptContext`).
  * @returns The fully-resolved answers, plus which keys were actually
  *   prompted for and answered live (see `Wizard`'s own `onComplete` doc).
  */
@@ -40,7 +41,7 @@ export function runWizard(
   configDefaults: Record<string, unknown> = {},
   options: RunWizardOptions = {},
 ): Promise<WizardResult> {
-  const { leadingSpecs = [], destCwd } = options;
+  const { leadingSpecs = [], destCwd, promptContext } = options;
   return new Promise(resolve => {
     const { unmount } = render(
       createElement(Wizard, {
@@ -50,6 +51,7 @@ export function runWizard(
         ],
         seed,
         destCwd,
+        promptContext,
         onComplete: (answers, answeredKeys) => {
           unmount();
           resolve({ answers, answeredKeys });

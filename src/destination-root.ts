@@ -36,24 +36,26 @@ export type DestinationRootArgs = {
   destGiven: boolean;
   dest: string;
   mode: DestinationMode;
-  chosenProjectName: unknown;
+  projectName?: string;
+  generateName?: () => string | PromiseLike<string>;
   options: Record<string, unknown>;
 };
 
 /**
  * Resolves the directory to scaffold into: `dest` verbatim when `--dest`
  * was given explicitly or the generator scaffolds in place, otherwise a
- * generated project directory (see `locateNewProject()`). When the wizard
- * already resolved a project name (`chosenProjectName`), that exact name is
- * reused (`maxAttempts: 1`) rather than generating a fresh one here — a
- * name the user explicitly typed or confirmed shouldn't be silently swapped
- * out from under them on a GitHub-collision retry.
+ * generated project directory (see `locateNewProject()`). An explicitly
+ * chosen `projectName` (a flag or wizard answer) is used as-is
+ * (`maxAttempts: 1`) — a name the user typed or confirmed shouldn't be
+ * silently swapped out from under them on a collision retry the way a
+ * `generateName()` one is.
  *
  * @param args - Whether/where to generate, plus what resolveGeneratedDestination() needs to check GitHub.
  * @param args.destGiven - Whether --dest was given explicitly on the CLI.
  * @param args.dest - The (possibly default) --dest value.
  * @param args.mode - The target generator's `destinationMode()`.
- * @param args.chosenProjectName - The wizard's answer for the project-name step, if it ran.
+ * @param args.projectName - An explicitly chosen project name, if any.
+ * @param args.generateName - Generates a candidate name when `projectName` isn't given.
  * @param args.options - The fully-resolved generator options (for createRepo/repoOwner/githubToken).
  * @returns The destination directory to scaffold into.
  */
@@ -61,7 +63,8 @@ export async function resolveDestinationRoot({
   destGiven,
   dest,
   mode,
-  chosenProjectName,
+  projectName,
+  generateName,
   options,
 }: DestinationRootArgs): Promise<string> {
   if (destGiven || mode.kind === 'inPlace') {
@@ -80,8 +83,8 @@ export async function resolveDestinationRoot({
       typeof options.repoOwner === 'string' ? options.repoOwner : undefined,
     githubToken:
       typeof options.githubToken === 'string' ? options.githubToken : undefined,
-    ...(typeof chosenProjectName === 'string'
-      ? { generateName: () => chosenProjectName, maxAttempts: 1 }
-      : {}),
+    ...(projectName !== undefined
+      ? { generateName: () => projectName, maxAttempts: 1 }
+      : { generateName }),
   });
 }

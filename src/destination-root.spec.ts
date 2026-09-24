@@ -1,13 +1,22 @@
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { expect } from 'chai';
+import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 
 import {
   locateNewProject,
   resolveDestinationRoot,
 } from './destination-root.js';
+
+use(chaiAsPromised);
 
 describe('destination-root', function () {
   let cwd: string;
@@ -35,7 +44,7 @@ describe('destination-root', function () {
       destGiven,
       dest,
       mode,
-      chosenProjectName: 'fizzy-otter',
+      projectName: 'fizzy-otter',
       options: {},
     });
 
@@ -86,6 +95,38 @@ describe('destination-root', function () {
           join(cwd, 'fizzy-otter'),
         );
       });
+    });
+  });
+
+  describe('generated names', function () {
+    it('retries generateName() past an existing directory when no projectName is given', async function () {
+      const names = ['taken', 'free'];
+      mkdirSync(join(cwd, 'taken'));
+
+      const destination = await resolveDestinationRoot({
+        destGiven: false,
+        dest: cwd,
+        mode: { kind: 'newProjectDir' },
+        generateName: () => names.shift()!,
+        options: {},
+      });
+
+      expect(destination).to.equal(join(cwd, 'free'));
+    });
+
+    it('does not retry an explicit projectName that already exists', async function () {
+      mkdirSync(join(cwd, 'taken'));
+
+      await expect(
+        resolveDestinationRoot({
+          destGiven: false,
+          dest: cwd,
+          mode: { kind: 'newProjectDir' },
+          projectName: 'taken',
+          generateName: () => 'free',
+          options: {},
+        }),
+      ).to.be.rejectedWith(/after 1 attempts/);
     });
   });
 
