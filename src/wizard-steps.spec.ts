@@ -15,13 +15,17 @@ import {
   gitInitImpliedAnswers,
   hintsFor,
   initialAnswers,
+  isClearable,
   licenseImpliedAnswers,
   mergeAnswer,
   pendingSpecs,
   projectNameError,
+  projectNamePrefix,
+  reintroducePrefix,
   reloadableCapability,
 } from './wizard-steps.js';
 import type { OptionSpec } from './schema.js';
+import { PROJECT_NAME_KEY } from './project-name.js';
 
 const textSpec: OptionSpec = {
   key: 'description',
@@ -631,6 +635,84 @@ describe('wizard-steps', function () {
     });
   });
 
+  describe('isClearable', function () {
+    it('is true for a spec with a clearable capability', function () {
+      const spec: OptionSpec = {
+        ...textSpec,
+        capabilities: [{ type: 'clearable' }],
+      };
+      expect(isClearable(spec)).to.be.true;
+    });
+
+    it('is true for the project-name step even with no clearable capability', function () {
+      const spec: OptionSpec = {
+        ...textSpec,
+        key: PROJECT_NAME_KEY,
+        capabilities: [{ type: 'reloadable', provider: () => 'brave-otter' }],
+      };
+      expect(isClearable(spec)).to.be.true;
+    });
+
+    it('is false for a plain spec with neither', function () {
+      expect(isClearable(textSpec)).to.be.false;
+    });
+  });
+
+  describe('projectNamePrefix', function () {
+    it("prefers an explicit configDefaults.projectName over the workspace's name", function () {
+      expect(
+        projectNamePrefix({
+          configDefaults: { projectName: 'sektek-messaging' },
+          workspace: { root: '/ws', name: 'other-workspace' },
+        }),
+      ).to.equal('sektek-messaging');
+    });
+
+    it('falls back to the workspace name with no configDefaults.projectName', function () {
+      expect(
+        projectNamePrefix({
+          configDefaults: {},
+          workspace: { root: '/ws', name: 'sektek-messaging' },
+        }),
+      ).to.equal('sektek-messaging');
+    });
+
+    it('ignores a non-string or empty configDefaults.projectName', function () {
+      expect(
+        projectNamePrefix({
+          configDefaults: { projectName: '' },
+          workspace: { root: '/ws', name: 'sektek-messaging' },
+        }),
+      ).to.equal('sektek-messaging');
+      expect(
+        projectNamePrefix({
+          configDefaults: { projectName: 42 },
+          workspace: { root: '/ws', name: 'sektek-messaging' },
+        }),
+      ).to.equal('sektek-messaging');
+    });
+
+    it('returns undefined with neither a configDefaults.projectName nor a workspace', function () {
+      expect(projectNamePrefix({ configDefaults: {} })).to.be.undefined;
+    });
+  });
+
+  describe('reintroducePrefix', function () {
+    it("joins the prefix onto the typed input with generateProjectName's own '-' separator", function () {
+      expect(reintroducePrefix('sektek-messaging', 'x')).to.deep.equal({
+        value: 'sektek-messaging-x',
+        cursorOffset: 'sektek-messaging-x'.length,
+      });
+    });
+
+    it('places the cursor at the end for a multi-character (pasted) input', function () {
+      expect(reintroducePrefix('sektek-messaging', 'fizzy')).to.deep.equal({
+        value: 'sektek-messaging-fizzy',
+        cursorOffset: 'sektek-messaging-fizzy'.length,
+      });
+    });
+  });
+
   describe('hintsFor', function () {
     const generatedTextSpec: OptionSpec = {
       ...textSpec,
@@ -686,6 +768,26 @@ describe('wizard-steps', function () {
 
     it('omits the ^X hint for a reloadable-only spec that does not allow clearing', function () {
       expect(hintsFor(generatedTextSpec, true)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+        { key: '^R', label: 'new name' },
+      ]);
+    });
+
+    it('adds a ^X hint for the project-name step, which has no clearable capability of its own', function () {
+      const projectNameSpec: OptionSpec = {
+        ...textSpec,
+        key: PROJECT_NAME_KEY,
+        capabilities: [{ type: 'reloadable', provider: () => 'brave-otter' }],
+      };
+      expect(hintsFor(projectNameSpec, true)).to.deep.equal([
+        { key: 'Enter', label: 'confirm' },
+        { key: '^R', label: 'new name' },
+        { key: '^X', label: 'clear' },
+      ]);
+    });
+
+    it('shows the ^R hint via a separate canRegenerate argument, independent of isPristine', function () {
+      expect(hintsFor(generatedTextSpec, false, true)).to.deep.equal([
         { key: 'Enter', label: 'confirm' },
         { key: '^R', label: 'new name' },
       ]);
