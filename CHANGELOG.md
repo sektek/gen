@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.13.0](https://github.com/sektek/gen/compare/v0.12.0...v0.13.0) (2026-09-24)
+
+### Features
+
+* **gen:** drive projectName through projectNamePrompt instead of a CLI-only spec ([#19](https://github.com/sektek/gen/issues/19)) ([44bdecd](https://github.com/sektek/gen/commit/44bdecd84e502a4b0900a06a638b003480f66338))
+
+### Bug Fixes
+
+* **gen:** also search for gen.config.* from an explicit --dest ([#20](https://github.com/sektek/gen/issues/20)) ([c119abd](https://github.com/sektek/gen/commit/c119abd11e2546d7bf32a81eb8cf10091f654996))
+
 ## [0.12.0](https://github.com/sektek/gen/compare/v0.11.0...v0.12.0) (2026-09-23)
 
 ### Features
