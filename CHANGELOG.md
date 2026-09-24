@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.14.0](https://github.com/sektek/gen/compare/v0.13.0...v0.14.0) (2026-09-24)
+
+### Features
+
+* **gen:** workspace-prefix-aware project-name input (prefix-clear-retype state machine) ([#22](https://github.com/sektek/gen/issues/22)) ([fab5ebf](https://github.com/sektek/gen/commit/fab5ebf2b37c6826ce0d02b9cdcf0e02412e0b16))
+
 ## [0.13.0](https://github.com/sektek/gen/compare/v0.12.0...v0.13.0) (2026-09-24)
 
 ### Features
