@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.16.0](https://github.com/sektek/gen/compare/v0.15.0...v0.16.0) (2026-09-25)
+
+### Features
+
+* **gen:** generalize registry.ts to per-invocation dynamic package resolution ([#25](https://github.com/sektek/gen/issues/25)) ([0871a60](https://github.com/sektek/gen/commit/0871a609354331139803e608327f470d5a28c900))
+
+### Bug Fixes
+
+* **gen:** resolve @sektek/generator-base through the shared resolver ([#24](https://github.com/sektek/gen/issues/24)) ([b361bb7](https://github.com/sektek/gen/commit/b361bb70a46e07ed44b638b4325b4d7db09675c3))
+
 ## [0.15.0](https://github.com/sektek/gen/compare/v0.14.0...v0.15.0) (2026-09-25)
 
 ### Features
