@@ -1,4 +1,6 @@
+/* eslint-disable no-console -- asserting on stubbed console output below */
 import {
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -8,93 +10,329 @@ import {
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { expect } from 'chai';
+import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
+import sinon from 'sinon';
 
-import { main, resolveNamespace } from './cli.js';
+import {
+  main,
+  printDefaultList,
+  printPackageList,
+  resolveNamespace,
+} from './cli.js';
 import {
   resetGitConfigReaderForTesting,
   setGitConfigReaderForTesting,
 } from './git-identity.js';
 
-const KNOWN_NAMESPACES = [
-  '@sektek/base:app',
-  '@sektek/base:editorconfig',
-  '@sektek/base:gitconfig',
-  '@sektek/base:workspace',
-  '@sektek/js:app',
-  '@sektek/js:eslint',
-  '@sektek/js:gitconfig',
-  '@sektek/js:workspace',
-];
+use(chaiAsPromised);
+
+const cwd = process.cwd();
 
 describe('cli', function () {
   describe('resolveNamespace', function () {
-    it('resolves a bare package alias to its :app generator', function () {
-      expect(resolveNamespace('js', KNOWN_NAMESPACES)).to.equal(
+    it('resolves a bare package alias to its :app generator', async function () {
+      expect((await resolveNamespace('js', cwd)).namespace).to.equal(
         '@sektek/js:app',
       );
     });
 
-    it('resolves an alias:name pair as a passthrough', function () {
-      expect(resolveNamespace('js:workspace', KNOWN_NAMESPACES)).to.equal(
+    it('resolves a name:subgen pair, defaulting scope to sektek', async function () {
+      expect((await resolveNamespace('js:workspace', cwd)).namespace).to.equal(
         '@sektek/js:workspace',
       );
     });
 
-    it('passes a fully-qualified namespace through unchanged', function () {
+    it('passes a fully-qualified namespace through unchanged', async function () {
       expect(
-        resolveNamespace('@sektek/base:editorconfig', KNOWN_NAMESPACES),
+        (await resolveNamespace('@sektek/base:editorconfig', cwd)).namespace,
       ).to.equal('@sektek/base:editorconfig');
     });
 
-    it('resolves a bare name unique to base', function () {
-      expect(resolveNamespace('editorconfig', KNOWN_NAMESPACES)).to.equal(
+    it('resolves a bare name unique to base', async function () {
+      expect((await resolveNamespace('editorconfig', cwd)).namespace).to.equal(
         '@sektek/base:editorconfig',
       );
     });
 
-    it('resolves a bare name that exists in both base and js to base silently', function () {
-      expect(resolveNamespace('gitconfig', KNOWN_NAMESPACES)).to.equal(
+    it('resolves a bare name that exists in both base and js to base silently', async function () {
+      expect((await resolveNamespace('gitconfig', cwd)).namespace).to.equal(
         '@sektek/base:gitconfig',
       );
     });
 
-    it('rejects a bare name that exists only in js, hinting at the js: prefix', function () {
-      expect(() => resolveNamespace('eslint', KNOWN_NAMESPACES)).to.throw(
+    it("also returns the target package's resolved entries, for downstream registration", async function () {
+      const { entries } = await resolveNamespace('js:workspace', cwd);
+      expect(entries.map(entry => entry.namespace)).to.include(
+        '@sektek/js:workspace',
+      );
+      // generator-js's own dependency on generator-base pulls these in
+      // transitively — the same entries composeWith needs to compose
+      // @sektek/base:* sub-generators from within @sektek/js:app.
+      expect(entries.map(entry => entry.namespace)).to.include(
+        '@sektek/base:editorconfig',
+      );
+    });
+
+    it('rejects a bare name that exists only in js, hinting at the js: prefix', async function () {
+      await expect(resolveNamespace('eslint', cwd)).to.be.rejectedWith(
         /Did you mean 'js:eslint'/,
       );
     });
 
-    it('rejects a bare name that exists in neither package with a generic message', function () {
-      expect(() => resolveNamespace('nonexistent', KNOWN_NAMESPACES)).to.throw(
-        /^Unknown generator 'nonexistent'\. Run 'gen list'/,
+    it('rejects a bare name that exists in neither package with a generic message', async function () {
+      await expect(
+        resolveNamespace('totallyNonexistentGenerator', cwd),
+      ).to.be.rejectedWith(
+        /^Unknown generator '@sektek\/base:totallyNonexistentGenerator'\. Run 'gen list'/,
       );
     });
 
-    it('rejects a bare name that collides with an inherited Object.prototype property', function () {
-      // `input in PREFIX_ALIASES` would match 'toString' via the prototype
-      // chain even though it's not an own key, resolving to 'undefined:app'.
-      expect(() => resolveNamespace('toString', KNOWN_NAMESPACES)).to.throw(
-        /^Unknown generator 'toString'\. Run 'gen list'/,
+    it('resolves a bare name colliding with an inherited Object.prototype property as a normal miss', async function () {
+      // parseGeneratorInput() always defaults a bare, non-sugar name to
+      // '@sektek/base:<name>' structurally rather than via a dictionary
+      // lookup keyed by the input string, so 'toString' can't accidentally
+      // match through the prototype chain the way an `input in
+      // PREFIX_ALIASES`-style check once could.
+      await expect(resolveNamespace('toString', cwd)).to.be.rejectedWith(
+        /^Unknown generator '@sektek\/base:toString'\. Run 'gen list'/,
       );
     });
 
-    it('rejects an unknown alias:name pair', function () {
-      expect(() =>
-        resolveNamespace('js:nonexistent', KNOWN_NAMESPACES),
-      ).to.throw(/Unknown generator/);
+    it('rejects a name:subgen pair whose package resolves but the subgen does not', async function () {
+      await expect(resolveNamespace('js:nonexistent', cwd)).to.be.rejectedWith(
+        /Unknown generator '@sektek\/js:nonexistent'/,
+      );
     });
 
-    it('rejects an unknown prefix', function () {
-      expect(() =>
-        resolveNamespace('bogus:editorconfig', KNOWN_NAMESPACES),
-      ).to.throw(/Unknown generator 'bogus:editorconfig'\. Expected/);
+    it('rejects a name:subgen pair whose defaulted-scope package is not installed', async function () {
+      // 'bogus' is no longer a hardcoded allowlist lookup — it's parsed as
+      // @sektek/generator-bogus like any other name, and fails to resolve
+      // as a real package rather than hitting a special "unknown prefix"
+      // case.
+      await expect(
+        resolveNamespace('bogus:editorconfig', cwd),
+      ).to.be.rejectedWith(
+        /Generator package '@sektek\/generator-bogus' isn't installed/,
+      );
     });
 
-    it('rejects an unknown fully-qualified namespace', function () {
-      expect(() =>
-        resolveNamespace('@sektek/js:nonexistent', KNOWN_NAMESPACES),
-      ).to.throw(/Unknown generator/);
+    it('rejects an unknown fully-qualified namespace', async function () {
+      await expect(
+        resolveNamespace('@sektek/js:nonexistent', cwd),
+      ).to.be.rejectedWith(/Unknown generator/);
+    });
+
+    describe('a fully-qualified third-party package', function () {
+      let fixtureCwd: string;
+
+      beforeEach(function () {
+        fixtureCwd = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-fixture-'));
+        const pkgDir = join(
+          fixtureCwd,
+          'node_modules',
+          '@acme',
+          'generator-widget',
+        );
+        mkdirSync(join(pkgDir, 'generators', 'app'), { recursive: true });
+        writeFileSync(
+          join(pkgDir, 'package.json'),
+          JSON.stringify({
+            name: '@acme/generator-widget',
+            version: '0.0.0-fixture',
+            exports: {
+              './manifest': './manifest.js',
+              './generators/*': './generators/*/index.js',
+            },
+          }),
+        );
+        writeFileSync(
+          join(pkgDir, 'manifest.js'),
+          "export const GENERATORS = ['app'];\n",
+        );
+        writeFileSync(
+          join(pkgDir, 'generators', 'app', 'index.js'),
+          'export {};\n',
+        );
+      });
+
+      afterEach(function () {
+        rmSync(fixtureCwd, { recursive: true, force: true });
+      });
+
+      it('resolves, proving scope/name are not hardcoded to sektek', async function () {
+        expect(
+          (await resolveNamespace('@acme/widget:app', fixtureCwd)).namespace,
+        ).to.equal('@acme/widget:app');
+      });
+
+      it('does not let scope-defaulting accidentally reach a differently-scoped fixture', async function () {
+        // 'widget:app' (no @) defaults to scope 'sektek', i.e.
+        // @sektek/generator-widget — a different package than the fixture's
+        // @acme/generator-widget, so this must still fail to resolve.
+        await expect(
+          resolveNamespace('widget:app', fixtureCwd),
+        ).to.be.rejectedWith(/@sektek\/generator-widget/);
+      });
+    });
+  });
+
+  describe('printDefaultList', function () {
+    let fixtureCwd: string;
+
+    beforeEach(function () {
+      fixtureCwd = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-list-'));
+      sinon.stub(console, 'log');
+    });
+
+    afterEach(function () {
+      sinon.restore();
+      rmSync(fixtureCwd, { recursive: true, force: true });
+      process.exitCode = 0;
+    });
+
+    function writeFixturePackage(
+      pkgDir: string,
+      name: string,
+      generators: string[],
+    ): void {
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({
+          name,
+          version: '0.0.0-fixture',
+          exports: {
+            './manifest': './manifest.js',
+            './generators/*': './generators/*/index.js',
+          },
+        }),
+      );
+      writeFileSync(
+        join(pkgDir, 'manifest.js'),
+        `export const GENERATORS = ${JSON.stringify(generators)};\n`,
+      );
+      for (const name_ of generators) {
+        mkdirSync(join(pkgDir, 'generators', name_), { recursive: true });
+        writeFileSync(
+          join(pkgDir, 'generators', name_, 'index.js'),
+          'export {};\n',
+        );
+      }
+    }
+
+    it('lists every real @sektek/base and @sektek/js namespace by default', async function () {
+      await printDefaultList(process.cwd());
+
+      const logged = (console.log as sinon.SinonStub)
+        .getCalls()
+        .map(call => call.args[0]);
+      expect(logged.join('\n')).to.include('@sektek/base:app');
+      expect(logged.join('\n')).to.include('@sektek/js:app');
+      expect(process.exitCode).to.not.equal(1);
+    });
+
+    it('shows what resolves and notes what does not, rather than failing entirely', async function () {
+      writeFixturePackage(
+        join(fixtureCwd, 'node_modules', '@acme', 'generator-widget'),
+        '@acme/generator-widget',
+        ['app'],
+      );
+
+      await printDefaultList(fixtureCwd, [
+        '@acme/generator-widget',
+        '@acme/generator-missing',
+      ]);
+
+      const logged = (console.log as sinon.SinonStub)
+        .getCalls()
+        .map(call => call.args[0])
+        .join('\n');
+      expect(logged).to.include('@acme/widget:app');
+      expect(logged).to.include('@acme/generator-missing: not installed');
+      expect(process.exitCode).to.not.equal(1);
+    });
+
+    it('exits non-zero only when none of the default packages resolve', async function () {
+      await printDefaultList(fixtureCwd, [
+        '@acme/generator-missing-a',
+        '@acme/generator-missing-b',
+      ]);
+
+      expect(process.exitCode).to.equal(1);
+    });
+  });
+
+  describe('printPackageList', function () {
+    beforeEach(function () {
+      sinon.stub(console, 'log');
+      sinon.stub(console, 'error');
+    });
+
+    afterEach(function () {
+      sinon.restore();
+      process.exitCode = 0;
+    });
+
+    it('lists one specific real package, defaulting scope to sektek', async function () {
+      await printPackageList('js', process.cwd());
+
+      const logged = (console.log as sinon.SinonStub)
+        .getCalls()
+        .map(call => call.args[0]);
+      expect(logged.join('\n')).to.include('@sektek/js:app');
+    });
+
+    it('lists a fully-qualified third-party package', async function () {
+      const fixtureCwd = mkdtempSync(
+        join(tmpdir(), 'sektek-gen-cli-list-pkg-'),
+      );
+      try {
+        const pkgDir = join(
+          fixtureCwd,
+          'node_modules',
+          '@acme',
+          'generator-widget',
+        );
+        mkdirSync(join(pkgDir, 'generators', 'app'), { recursive: true });
+        writeFileSync(
+          join(pkgDir, 'package.json'),
+          JSON.stringify({
+            name: '@acme/generator-widget',
+            version: '0.0.0-fixture',
+            exports: {
+              './manifest': './manifest.js',
+              './generators/*': './generators/*/index.js',
+            },
+          }),
+        );
+        writeFileSync(
+          join(pkgDir, 'manifest.js'),
+          "export const GENERATORS = ['app'];\n",
+        );
+        writeFileSync(
+          join(pkgDir, 'generators', 'app', 'index.js'),
+          'export {};\n',
+        );
+
+        await printPackageList('@acme/widget', fixtureCwd);
+
+        const logged = (console.log as sinon.SinonStub)
+          .getCalls()
+          .map(call => call.args[0]);
+        expect(logged.join('\n')).to.include('@acme/widget:app');
+      } finally {
+        rmSync(fixtureCwd, { recursive: true, force: true });
+      }
+    });
+
+    it('errors clearly and exits non-zero for a package that is not installed', async function () {
+      await printPackageList('@acme/does-not-exist', process.cwd());
+
+      expect(
+        (console.error as sinon.SinonStub).calledWithMatch(/isn't installed/),
+      ).to.be.true;
+      expect(process.exitCode).to.equal(1);
     });
   });
 
