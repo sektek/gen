@@ -115,17 +115,21 @@ export async function registryFor(
     path: resolveGeneratorPackagePath(packageName, `generators/${name}`, cwd),
   }));
 
-  const pkgJsonPath = join(
-    packageRootFor(packageName, manifestPath, cwd),
-    'package.json',
-  );
+  const packageRoot = packageRootFor(packageName, manifestPath, cwd);
   const { dependencies = {} } = JSON.parse(
-    readFileSync(pkgJsonPath, 'utf8'),
+    readFileSync(join(packageRoot, 'package.json'), 'utf8'),
   ) as PackageJson;
   const depEntries = await Promise.all(
     Object.keys(dependencies)
       .filter(dep => GENERATOR_DEPENDENCY_PATTERN.test(dep))
-      .map(dep => registryFor(dep, cwd, seen)),
+      // Rooted at packageRoot, not the original cwd: npm can nest a
+      // dependency under packageName's own node_modules (e.g. on a version
+      // conflict with something at cwd's top level), and resolution from
+      // cwd would never see that nested copy — same as a real `require()`
+      // from within packageName's own source would resolve it. Walking up
+      // from packageRoot still reaches the same shared/hoisted node_modules
+      // cwd would have, so the common (hoisted) case is unaffected.
+      .map(dep => registryFor(dep, packageRoot, seen)),
   );
 
   return [...own, ...depEntries.flat()];
@@ -137,20 +141,55 @@ export async function registryFor(
 export const ROOT_PACKAGES = ['@sektek/generator-base', '@sektek/generator-js'];
 
 /**
+ * Builds `REGISTRY`-shaped entries for a list of root packages,
+ * best-effort: a package that isn't installed (`GeneratorPackageNotFoundError`)
+ * is silently skipped rather than thrown, so one missing package doesn't
+ * prevent resolving the others. Any other error still propagates.
+ *
+ * Exists as its own function (rather than inlined into `REGISTRY`'s
+ * top-level `await`) so this behavior is directly testable — `REGISTRY`
+ * itself only runs once, at module load, which a test can't easily
+ * re-trigger under different conditions.
+ *
+ * @param rootPackages - The packages to resolve.
+ * @param cwd - The directory to resolve each from.
+ * @returns Every entry from every package that resolved successfully.
+ */
+export async function buildRegistry(
+  rootPackages: readonly string[],
+  cwd: string,
+): Promise<RegistryEntry[]> {
+  const seen = new Set<string>();
+  const entries: RegistryEntry[] = [];
+  for (const pkg of rootPackages) {
+    try {
+      entries.push(...(await registryFor(pkg, cwd, seen)));
+    } catch (error) {
+      if (!(error instanceof GeneratorPackageNotFoundError)) {
+        throw error;
+      }
+    }
+  }
+  return entries;
+}
+
+/**
  * Every known generator entry, resolved fresh for this process. Exists so
  * `registerAll()`/`promptsFor()`/`destinationModeFor()` below can default
  * to it for a caller with no specific package in mind; a caller that wants
  * one package's own resolution passes `registryFor()`'s result explicitly
  * instead.
+ *
+ * Built via `buildRegistry()`'s best-effort behavior deliberately: this is
+ * a top-level `await`, so an uncaught rejection here would fail *importing
+ * this module* (and therefore anything that imports it, e.g. `cli.ts`)
+ * before any caller's own try/catch (e.g. `printDefaultList()`'s
+ * per-package handling) ever gets a chance to run.
  */
-export const REGISTRY: RegistryEntry[] = await (async () => {
-  const seen = new Set<string>();
-  const entries: RegistryEntry[] = [];
-  for (const pkg of ROOT_PACKAGES) {
-    entries.push(...(await registryFor(pkg, process.cwd(), seen)));
-  }
-  return entries;
-})();
+export const REGISTRY: RegistryEntry[] = await buildRegistry(
+  ROOT_PACKAGES,
+  process.cwd(),
+);
 
 /**
  * Registers every given entry with the environment, by its resolved
