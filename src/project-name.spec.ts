@@ -1,5 +1,5 @@
 import { isAbsolute, join, relative } from 'node:path';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 import { expect, use } from 'chai';
@@ -161,5 +161,51 @@ describe('project-name', function () {
         ).to.be.rejectedWith(/isn't a safe single path segment/);
       });
     }
+
+    it('resolves @sektek/generator-base through the shared resolver, honoring cwd, when githubClient is not injected', async function () {
+      // A cwd-local fixture package whose repoExists() reports a collision
+      // on the first name only, forcing a retry to the second — behavior
+      // only this fixture (not the real @sektek/generator-base, which has
+      // no such repo) would produce, so this proves `cwd` actually drove
+      // resolution rather than passing coincidentally.
+      const pkgDir = join(cwd, 'node_modules', '@sektek', 'generator-base');
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({
+          name: '@sektek/generator-base',
+          version: '0.0.0-fixture',
+          exports: { '.': './index.js' },
+        }),
+      );
+      writeFileSync(
+        join(pkgDir, 'index.js'),
+        'export function defaultGithubClient() {\n' +
+          '  let calls = 0;\n' +
+          '  return {\n' +
+          "    resolveToken: async () => 'fixture-token',\n" +
+          '    repoExists: async () => ({ exists: calls++ === 0 }),\n' +
+          '  };\n' +
+          '}\n',
+      );
+      const generateName = sinon
+        .stub()
+        .onCall(0)
+        .returns('foo-bar')
+        .onCall(1)
+        .returns('baz-qux');
+
+      const dest = await resolveGeneratedDestination({
+        cwd,
+        createRepo: true,
+        generateName,
+      });
+
+      expect(dest).to.equal(join(cwd, 'baz-qux'));
+    });
+
+    // As with package-scope.spec.ts, a genuine "package not found anywhere"
+    // case isn't tested here — see package-resolver.spec.ts for
+    // GeneratorPackageNotFoundError coverage.
   });
 });

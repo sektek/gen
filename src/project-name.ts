@@ -1,7 +1,14 @@
 import { existsSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
-import type { GithubClient } from '@sektek/generator-base';
+import { resolveGeneratorPackagePath } from './package-resolver.js';
+
+// Inline rather than a static `import type` specifier, so nothing in this
+// file needs @sektek/generator-base resolvable at the module graph level —
+// only through resolveGeneratorPackagePath() below, the same as the
+// runtime import.
+type GithubClient = import('@sektek/generator-base').GithubClient;
 
 // A generated name must be exactly one safe path segment — no separators,
 // no dot-segments — before it's ever joined onto `cwd`. Otherwise a bad
@@ -81,7 +88,13 @@ export async function resolveGeneratedDestination(
     (await import('@sektek/generator/project-name')).randomProjectName;
   const client = opts.createRepo
     ? (opts.githubClient ??
-      (await import('@sektek/generator-base')).defaultGithubClient())
+      (
+        await import(
+          pathToFileURL(
+            resolveGeneratorPackagePath('@sektek/generator-base', '', opts.cwd),
+          ).href
+        )
+      ).defaultGithubClient())
     : undefined;
   const auth = client
     ? { token: await client.resolveToken(opts.githubToken) }

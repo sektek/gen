@@ -1,3 +1,7 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
 import type { GithubClient } from '@sektek/generator-base';
 import { expect } from 'chai';
 import sinon from 'sinon';
@@ -83,5 +87,54 @@ describe('package-scope', function () {
 
       expect(scope).to.equal('');
     });
+
+    it('resolves @sektek/generator-base through the shared resolver, honoring cwd, when githubClient is not injected', async function () {
+      // A cwd-local fixture package, distinguishable from the real
+      // @sektek/generator-base by its sentinel return values — proving
+      // `cwd` actually drove resolution (the old bare `import(...)` could
+      // only ever reach the real package, never this fixture, and would
+      // fail this assertion).
+      const fixtureRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-scope-'));
+      const pkgDir = join(
+        fixtureRoot,
+        'node_modules',
+        '@sektek',
+        'generator-base',
+      );
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({
+          name: '@sektek/generator-base',
+          version: '0.0.0-fixture',
+          exports: { '.': './index.js' },
+        }),
+      );
+      writeFileSync(
+        join(pkgDir, 'index.js'),
+        'export function defaultGithubClient() {\n' +
+          '  return {\n' +
+          "    resolveToken: async () => 'fixture-token',\n" +
+          "    getAuthenticatedUser: async () => ({ login: 'fixture-user' }),\n" +
+          '  };\n' +
+          '}\n',
+      );
+
+      try {
+        const scope = await resolvePackageScopeDefault({
+          createRepo: true,
+          cwd: fixtureRoot,
+        });
+
+        expect(scope).to.equal('fixture-user');
+      } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+      }
+    });
+
+    // A genuine "package not found anywhere" case isn't tested here:
+    // @sektek/generator-base is always resolvable via the global fallback
+    // in this workspace. See package-resolver.spec.ts for
+    // GeneratorPackageNotFoundError coverage.
   });
 });
