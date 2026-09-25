@@ -15,13 +15,23 @@ export class GeneratorPackageNotFoundError extends Error {
   }
 }
 
+// A package that exists but doesn't export the requested subpath (e.g. an
+// older local install predating a manifest export) also has to be treated
+// as a miss, not an error — otherwise a stale local copy blocks the global
+// fallback instead of yielding to it.
+const NOT_FOUND_CODES = new Set([
+  'MODULE_NOT_FOUND',
+  'ERR_MODULE_NOT_FOUND',
+  'ERR_PACKAGE_PATH_NOT_EXPORTED',
+]);
+
 function tryResolveFromCwd(specifier: string, cwd: string): string | undefined {
   try {
     return createRequire(pathToFileURL(join(cwd, 'noop.cjs')).href).resolve(
       specifier,
     );
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'MODULE_NOT_FOUND') {
+    if (NOT_FOUND_CODES.has((error as NodeJS.ErrnoException).code ?? '')) {
       return undefined;
     }
     throw error;
@@ -32,7 +42,7 @@ function tryResolveGlobalFallback(specifier: string): string | undefined {
   try {
     return fileURLToPath(import.meta.resolve(specifier));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ERR_MODULE_NOT_FOUND') {
+    if (NOT_FOUND_CODES.has((error as NodeJS.ErrnoException).code ?? '')) {
       return undefined;
     }
     throw error;

@@ -96,6 +96,23 @@ describe('package-resolver', function () {
       expect(resolved).to.equal(realpathSync(join(pkgDir, 'index.js')));
     });
 
+    it('falls back to global when the cwd-local package exists but lacks the requested subpath export', function () {
+      // A stale local install that predates a manifest export must not
+      // block the global fallback with a raw ERR_PACKAGE_PATH_NOT_EXPORTED.
+      const pkgDir = join(root, 'node_modules', '@sektek', 'generator-base');
+      writeFixturePackage('@sektek/generator-base', pkgDir);
+
+      const resolved = resolveGeneratorPackagePath(
+        '@sektek/generator-base',
+        'manifest',
+        root,
+      );
+
+      expect(resolved).to.equal(
+        fileURLToPath(import.meta.resolve('@sektek/generator-base/manifest')),
+      );
+    });
+
     it('throws GeneratorPackageNotFoundError naming both search locations when neither resolves', function () {
       let thrown: GeneratorPackageNotFoundError | undefined;
       try {
