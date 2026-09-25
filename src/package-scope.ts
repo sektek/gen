@@ -1,9 +1,18 @@
+import { pathToFileURL } from 'node:url';
+
 import type { GithubClient } from '@sektek/generator-base';
+
+import { resolveGeneratorPackagePath } from './package-resolver.js';
 
 export type PackageScopeDefaultOptions = {
   createRepo?: boolean;
   repoOwner?: string;
   githubToken?: string;
+  // The directory to resolve @sektek/generator-base from. Defaults to
+  // process.cwd() — real call sites (cli.ts, schema.ts) don't have a more
+  // precise cwd available, but tests can inject a fixture directory instead
+  // of needing to mock process.cwd().
+  cwd?: string;
   // Test-only DI seam, mirroring project-name.ts's ResolveGeneratedDestinationOptions#githubClient.
   githubClient?: GithubClient;
 };
@@ -31,9 +40,14 @@ export async function resolvePackageScopeDefault(
   }
 
   try {
+    const modulePath = resolveGeneratorPackagePath(
+      '@sektek/generator-base',
+      '',
+      opts.cwd ?? process.cwd(),
+    );
     const client =
       opts.githubClient ??
-      (await import('@sektek/generator-base')).defaultGithubClient();
+      (await import(pathToFileURL(modulePath).href)).defaultGithubClient();
     const token = await client.resolveToken(opts.githubToken);
     const { login } = await client.getAuthenticatedUser({ token });
     return login;
