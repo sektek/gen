@@ -1,4 +1,12 @@
-import { existsSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import { expect, use } from 'chai';
 import type Environment from 'yeoman-environment';
@@ -88,6 +96,45 @@ describe('registry', function () {
       expect(
         await registryFor('@sektek/generator-js', cwd, seen),
       ).to.deep.equal([]);
+    });
+
+    it('reads dependencies from the same installation the manifest was resolved from', async function () {
+      // A cwd-local fixture that exports '.' but not './manifest': the
+      // manifest (and every generator path) falls back to the real global
+      // generator-js install, but a naive root lookup via
+      // resolveGeneratorPackagePath(packageName, '', cwd) would still find
+      // this fixture's root and read its (deliberately dependency-less)
+      // package.json instead — silently dropping the transitive
+      // @sektek/base:* entries that generator-js's real package.json
+      // declares.
+      const fixtureRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-registry-'));
+      try {
+        const pkgDir = join(
+          fixtureRoot,
+          'node_modules',
+          '@sektek',
+          'generator-js',
+        );
+        mkdirSync(pkgDir, { recursive: true });
+        writeFileSync(
+          join(pkgDir, 'package.json'),
+          JSON.stringify({
+            name: '@sektek/generator-js',
+            version: '0.0.0-fixture',
+            exports: { '.': './index.js' },
+            dependencies: {},
+          }),
+        );
+        writeFileSync(join(pkgDir, 'index.js'), 'export {};\n');
+
+        const namespaces = (
+          await registryFor('@sektek/generator-js', fixtureRoot)
+        ).map(entry => entry.namespace);
+
+        expect(namespaces).to.include.members(BASE_NAMESPACES);
+      } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+      }
     });
   });
 

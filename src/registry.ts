@@ -33,22 +33,33 @@ type PackageJson = {
 const GENERATOR_DEPENDENCY_PATTERN = /^@[^/]+\/generator-/;
 
 /**
- * The on-disk directory containing `packageName`'s own `package.json`.
+ * The on-disk directory containing `packageName`'s own `package.json`,
+ * walked up from `fromPath` until a `package.json` naming this exact
+ * package is found, rather than resolving `<packageName>/package.json`
+ * directly — `package.json` isn't a subpath these packages' `exports` maps
+ * expose (unlike `manifest` or `generators/<name>`, which
+ * `resolveGeneratorPackagePath` handles directly), so a direct resolve
+ * attempt throws `ERR_PACKAGE_PATH_NOT_EXPORTED`.
  *
- * Derived by resolving the package's root entry point and walking up until
- * a `package.json` naming this exact package is found, rather than
- * resolving `<packageName>/package.json` directly — `package.json` isn't a
- * subpath these packages' `exports` maps expose (unlike `manifest` or
- * `generators/<name>`, which `resolveGeneratorPackagePath` handles
- * directly), so a direct resolve attempt throws
- * `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+ * `fromPath` must come from a `resolveGeneratorPackagePath` call already
+ * made against the same `packageName` (e.g. its resolved `manifestPath`)
+ * rather than a fresh `resolveGeneratorPackagePath(packageName, '', cwd)`
+ * call here — the resolver's cwd-first-then-global fallback is decided
+ * per subpath, so a second independent call can silently land on a
+ * different installation than the one whose manifest was just loaded,
+ * reading a `package.json`/`dependencies` inconsistent with it.
  *
  * @param packageName - The npm package to locate (e.g. `@sektek/generator-base`).
- * @param cwd - The directory to search from first (see `resolveGeneratorPackagePath`).
+ * @param fromPath - A path already resolved against this exact `packageName`.
+ * @param cwd - Only used to name the search root in a not-found error.
  * @returns The absolute path to the package's own root directory.
  */
-function packageRootFor(packageName: string, cwd: string): string {
-  let dir = dirname(resolveGeneratorPackagePath(packageName, '', cwd));
+function packageRootFor(
+  packageName: string,
+  fromPath: string,
+  cwd: string,
+): string {
+  let dir = dirname(fromPath);
   for (;;) {
     const candidate = join(dir, 'package.json');
     if (existsSync(candidate)) {
@@ -104,7 +115,10 @@ export async function registryFor(
     path: resolveGeneratorPackagePath(packageName, `generators/${name}`, cwd),
   }));
 
-  const pkgJsonPath = join(packageRootFor(packageName, cwd), 'package.json');
+  const pkgJsonPath = join(
+    packageRootFor(packageName, manifestPath, cwd),
+    'package.json',
+  );
   const { dependencies = {} } = JSON.parse(
     readFileSync(pkgJsonPath, 'utf8'),
   ) as PackageJson;
