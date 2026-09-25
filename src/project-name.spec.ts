@@ -1,5 +1,5 @@
 import { isAbsolute, join, relative } from 'node:path';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 import { expect, use } from 'chai';
@@ -162,46 +162,46 @@ describe('project-name', function () {
       });
     }
 
-    it('resolves @sektek/generator-base through the shared resolver when githubClient is not injected', async function () {
-      // Asserting the *token* error specifically (rather than a resolution
-      // error) confirms module resolution and defaultGithubClient()
-      // construction both already succeeded — this path has no try/catch,
-      // so a resolution failure would surface as its own distinct
-      // rejection instead.
-      //
-      // GITHUB_TOKEN/GH_TOKEN/GH_CONFIG_DIR are overridden so token
-      // resolution deterministically fails even on a machine with real `gh`
-      // auth configured — this must never make a live GitHub API call.
-      const emptyGhConfigDir = mkdtempSync(
-        join(tmpdir(), 'sektek-gen-empty-gh-config-'),
+    it('resolves @sektek/generator-base through the shared resolver, honoring cwd, when githubClient is not injected', async function () {
+      // A cwd-local fixture package whose repoExists() reports a collision
+      // on the first name only, forcing a retry to the second — behavior
+      // only this fixture (not the real @sektek/generator-base, which has
+      // no such repo) would produce, so this proves `cwd` actually drove
+      // resolution rather than passing coincidentally.
+      const pkgDir = join(cwd, 'node_modules', '@sektek', 'generator-base');
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({
+          name: '@sektek/generator-base',
+          version: '0.0.0-fixture',
+          exports: { '.': './index.js' },
+        }),
       );
-      const savedEnv = {
-        GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-        GH_TOKEN: process.env.GH_TOKEN,
-        GH_CONFIG_DIR: process.env.GH_CONFIG_DIR,
-      };
-      delete process.env.GITHUB_TOKEN;
-      delete process.env.GH_TOKEN;
-      process.env.GH_CONFIG_DIR = emptyGhConfigDir;
+      writeFileSync(
+        join(pkgDir, 'index.js'),
+        'export function defaultGithubClient() {\n' +
+          '  let calls = 0;\n' +
+          '  return {\n' +
+          "    resolveToken: async () => 'fixture-token',\n" +
+          '    repoExists: async () => ({ exists: calls++ === 0 }),\n' +
+          '  };\n' +
+          '}\n',
+      );
+      const generateName = sinon
+        .stub()
+        .onCall(0)
+        .returns('foo-bar')
+        .onCall(1)
+        .returns('baz-qux');
 
-      try {
-        await expect(
-          resolveGeneratedDestination({
-            cwd,
-            createRepo: true,
-            generateName: () => 'foo-bar',
-          }),
-        ).to.be.rejectedWith(/Unable to resolve a GitHub token/);
-      } finally {
-        for (const [key, value] of Object.entries(savedEnv)) {
-          if (value === undefined) {
-            delete process.env[key];
-          } else {
-            process.env[key] = value;
-          }
-        }
-        rmSync(emptyGhConfigDir, { recursive: true, force: true });
-      }
+      const dest = await resolveGeneratedDestination({
+        cwd,
+        createRepo: true,
+        generateName,
+      });
+
+      expect(dest).to.equal(join(cwd, 'baz-qux'));
     });
 
     // As with package-scope.spec.ts, a genuine "package not found anywhere"

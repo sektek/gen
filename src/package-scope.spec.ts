@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -88,42 +88,47 @@ describe('package-scope', function () {
       expect(scope).to.equal('');
     });
 
-    it('resolves @sektek/generator-base through the shared resolver when githubClient is not injected', async function () {
-      // GITHUB_TOKEN/GH_TOKEN/GH_CONFIG_DIR are overridden so token
-      // resolution deterministically fails even on a machine with real `gh`
-      // auth configured — this must never make a live GitHub API call. A
-      // resolver failure would be indistinguishable here (both are
-      // swallowed to '' by the try/catch); project-name.spec.ts's
-      // equivalent test has no try/catch, so that one asserts resolution
-      // itself succeeded.
-      const emptyGhConfigDir = mkdtempSync(
-        join(tmpdir(), 'sektek-gen-empty-gh-config-'),
+    it('resolves @sektek/generator-base through the shared resolver, honoring cwd, when githubClient is not injected', async function () {
+      // A cwd-local fixture package, distinguishable from the real
+      // @sektek/generator-base by its sentinel return values — proving
+      // `cwd` actually drove resolution (the old bare `import(...)` could
+      // only ever reach the real package, never this fixture, and would
+      // fail this assertion).
+      const fixtureRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-scope-'));
+      const pkgDir = join(
+        fixtureRoot,
+        'node_modules',
+        '@sektek',
+        'generator-base',
       );
-      const savedEnv = {
-        GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-        GH_TOKEN: process.env.GH_TOKEN,
-        GH_CONFIG_DIR: process.env.GH_CONFIG_DIR,
-      };
-      delete process.env.GITHUB_TOKEN;
-      delete process.env.GH_TOKEN;
-      process.env.GH_CONFIG_DIR = emptyGhConfigDir;
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({
+          name: '@sektek/generator-base',
+          version: '0.0.0-fixture',
+          exports: { '.': './index.js' },
+        }),
+      );
+      writeFileSync(
+        join(pkgDir, 'index.js'),
+        'export function defaultGithubClient() {\n' +
+          '  return {\n' +
+          "    resolveToken: async () => 'fixture-token',\n" +
+          "    getAuthenticatedUser: async () => ({ login: 'fixture-user' }),\n" +
+          '  };\n' +
+          '}\n',
+      );
 
       try {
         const scope = await resolvePackageScopeDefault({
           createRepo: true,
-          cwd: process.cwd(),
+          cwd: fixtureRoot,
         });
 
-        expect(scope).to.equal('');
+        expect(scope).to.equal('fixture-user');
       } finally {
-        for (const [key, value] of Object.entries(savedEnv)) {
-          if (value === undefined) {
-            delete process.env[key];
-          } else {
-            process.env[key] = value;
-          }
-        }
-        rmSync(emptyGhConfigDir, { recursive: true, force: true });
+        rmSync(fixtureRoot, { recursive: true, force: true });
       }
     });
 

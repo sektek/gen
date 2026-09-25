@@ -1,8 +1,12 @@
 import { pathToFileURL } from 'node:url';
 
-import type { GithubClient } from '@sektek/generator-base';
-
 import { resolveGeneratorPackagePath } from './package-resolver.js';
+
+// Inline rather than a static `import type` specifier, so nothing in this
+// file needs @sektek/generator-base resolvable at the module graph level —
+// only through resolveGeneratorPackagePath() below, the same as the
+// runtime import.
+type GithubClient = import('@sektek/generator-base').GithubClient;
 
 export type PackageScopeDefaultOptions = {
   createRepo?: boolean;
@@ -40,14 +44,19 @@ export async function resolvePackageScopeDefault(
   }
 
   try {
-    const modulePath = resolveGeneratorPackagePath(
-      '@sektek/generator-base',
-      '',
-      opts.cwd ?? process.cwd(),
-    );
     const client =
       opts.githubClient ??
-      (await import(pathToFileURL(modulePath).href)).defaultGithubClient();
+      (
+        await import(
+          pathToFileURL(
+            resolveGeneratorPackagePath(
+              '@sektek/generator-base',
+              '',
+              opts.cwd ?? process.cwd(),
+            ),
+          ).href
+        )
+      ).defaultGithubClient();
     const token = await client.resolveToken(opts.githubToken);
     const { login } = await client.getAuthenticatedUser({ token });
     return login;
