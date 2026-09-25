@@ -89,24 +89,13 @@ describe('package-scope', function () {
     });
 
     it('resolves @sektek/generator-base through the shared resolver when githubClient is not injected', async function () {
-      // No `githubClient` DI here: this exercises the real
-      // resolveGeneratorPackagePath()-based dynamic import wired up in
-      // resolvePackageScopeDefault(), not the old bare
-      // `import('@sektek/generator-base')` (which never took a `cwd` at
-      // all). `process.cwd()` here is this dev workspace's own root, where
-      // @sektek/generator-base is really resolvable, so this confirms
-      // resolution succeeds without needing fixtures.
-      //
-      // GITHUB_TOKEN/GH_TOKEN are cleared and GH_CONFIG_DIR is pointed at
-      // an empty directory for the duration of this test so token
-      // resolution deterministically fails even on a machine with real
-      // `gh` auth configured, keeping the assertion below exact instead of
-      // just "didn't throw" — this must never make a live GitHub API call.
-      // A resolver failure here would be indistinguishable (both are
-      // swallowed to '' by the try/catch), which is exactly why the
-      // equivalent test in project-name.spec.ts (not wrapped in a
-      // try/catch) is the one that actually distinguishes resolver
-      // failure from token failure.
+      // GITHUB_TOKEN/GH_TOKEN/GH_CONFIG_DIR are overridden so token
+      // resolution deterministically fails even on a machine with real `gh`
+      // auth configured — this must never make a live GitHub API call. A
+      // resolver failure would be indistinguishable here (both are
+      // swallowed to '' by the try/catch); project-name.spec.ts's
+      // equivalent test has no try/catch, so that one asserts resolution
+      // itself succeeded.
       const emptyGhConfigDir = mkdtempSync(
         join(tmpdir(), 'sektek-gen-empty-gh-config-'),
       );
@@ -138,16 +127,9 @@ describe('package-scope', function () {
       }
     });
 
-    // A true "@sektek/generator-base isn't installed anywhere" case isn't
-    // separately tested here: it's really resolvable alongside gen's own
-    // install in this dev workspace via package-resolver.ts's
-    // global-fallback path, so producing a genuine miss would require
-    // monkeypatching module resolution itself. package-resolver.spec.ts
-    // already covers GeneratorPackageNotFoundError for the resolver's own
-    // not-found behavior; this file's job is just confirming the
-    // rewiring, and the existing 'falls back to an empty scope' tests
-    // above already cover resolvePackageScopeDefault()'s catch-and-fall-
-    // back behavior for any failure inside the try block, resolution
-    // failures included.
+    // A genuine "package not found anywhere" case isn't tested here:
+    // @sektek/generator-base is always resolvable via the global fallback
+    // in this workspace. See package-resolver.spec.ts for
+    // GeneratorPackageNotFoundError coverage.
   });
 });

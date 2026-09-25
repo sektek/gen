@@ -8,10 +8,10 @@ export type PackageScopeDefaultOptions = {
   createRepo?: boolean;
   repoOwner?: string;
   githubToken?: string;
-  // The directory to resolve @sektek/generator-base from. Defaults to
-  // process.cwd() — real call sites (cli.ts, schema.ts) don't have a more
-  // precise cwd available, but tests can inject a fixture directory instead
-  // of needing to mock process.cwd().
+  // Resolution root for @sektek/generator-base. Defaults to process.cwd()
+  // since neither real call site has a more precise cwd on hand; kept as a
+  // parameter so tests can inject a fixture directory instead of mocking
+  // process.cwd().
   cwd?: string;
   // Test-only DI seam, mirroring project-name.ts's ResolveGeneratedDestinationOptions#githubClient.
   githubClient?: GithubClient;

@@ -163,24 +163,15 @@ describe('project-name', function () {
     }
 
     it('resolves @sektek/generator-base through the shared resolver when githubClient is not injected', async function () {
-      // No `githubClient` DI: this exercises the real
-      // resolveGeneratorPackagePath()-based dynamic import wired up here,
-      // not the old bare `import('@sektek/generator-base')` (which never
-      // took a `cwd` at all). If module resolution itself failed (e.g. a
-      // regression back to a bare specifier once @sektek/generator-base
-      // stops being a declared dependency), this would reject with
-      // GeneratorPackageNotFoundError or a raw MODULE_NOT_FOUND instead —
-      // so asserting the *token* error specifically confirms resolution
-      // and `defaultGithubClient()` construction both already succeeded.
-      // This code path (unlike package-scope.ts's) has no try/catch today,
-      // so this rejection is existing, unchanged behavior, not new
-      // error-swallowing.
+      // Asserting the *token* error specifically (rather than a resolution
+      // error) confirms module resolution and defaultGithubClient()
+      // construction both already succeeded — this path has no try/catch,
+      // so a resolution failure would surface as its own distinct
+      // rejection instead.
       //
-      // GITHUB_TOKEN/GH_TOKEN are cleared and GH_CONFIG_DIR is pointed at
-      // an empty directory for the duration of this test so token
-      // resolution deterministically fails even on a machine with real
-      // `gh` auth configured — this must never make a live GitHub API
-      // call.
+      // GITHUB_TOKEN/GH_TOKEN/GH_CONFIG_DIR are overridden so token
+      // resolution deterministically fails even on a machine with real `gh`
+      // auth configured — this must never make a live GitHub API call.
       const emptyGhConfigDir = mkdtempSync(
         join(tmpdir(), 'sektek-gen-empty-gh-config-'),
       );
@@ -213,11 +204,8 @@ describe('project-name', function () {
       }
     });
 
-    // As with package-scope.spec.ts, a true "@sektek/generator-base isn't
-    // installed anywhere" case isn't separately tested here: it's really
-    // resolvable alongside gen's own install in this dev workspace via
-    // package-resolver.ts's global-fallback path. package-resolver.spec.ts
-    // already covers GeneratorPackageNotFoundError for the resolver's own
-    // not-found behavior.
+    // As with package-scope.spec.ts, a genuine "package not found anywhere"
+    // case isn't tested here — see package-resolver.spec.ts for
+    // GeneratorPackageNotFoundError coverage.
   });
 });
