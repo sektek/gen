@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.15.0](https://github.com/sektek/gen/compare/v0.14.0...v0.15.0) (2026-09-25)
+
+### Features
+
+* **gen:** add shared cwd-first/global-fallback generator package resolver ([#23](https://github.com/sektek/gen/issues/23)) ([e0ec951](https://github.com/sektek/gen/commit/e0ec951f913bbd0f8a9c88998b7ec01804af8d93))
+
 ## [0.14.0](https://github.com/sektek/gen/compare/v0.13.0...v0.14.0) (2026-09-24)
 
 ### Features
