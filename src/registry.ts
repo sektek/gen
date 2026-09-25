@@ -117,22 +117,17 @@ export async function registryFor(
   return [...own, ...depEntries.flat()];
 }
 
-// The two generator packages `gen` has always shipped with as entry
-// points — everything each of these pulls in transitively (e.g.
-// generator-js's own dependency on generator-base) is resolved dynamically
-// via registryFor() above, not hardcoded per sub-generator the way the old
-// static REGISTRY was.
+// gen's two entry-point generator packages; everything each pulls in
+// transitively (e.g. generator-js's own dependency on generator-base) is
+// resolved dynamically via registryFor(), not listed here by hand.
 const ROOT_PACKAGES = ['@sektek/generator-base', '@sektek/generator-js'];
 
 /**
- * Every known generator entry, resolved fresh for this process against its
- * own `cwd` — the per-invocation replacement for the old REGISTRY built
- * once at module load from two static, compile-time manifest imports.
- * `registerAll()`/`promptsFor()`/`destinationModeFor()` below default to
- * this so existing single-argument call sites keep working unchanged, but
- * each also accepts an explicit `RegistryEntry[]` (e.g. from `registryFor()`
- * directly) for a caller that wants to target one package's own resolution
- * rather than this process-wide default.
+ * Every known generator entry, resolved fresh for this process. Exists so
+ * `registerAll()`/`promptsFor()`/`destinationModeFor()` below can default
+ * to it for a caller with no specific package in mind; a caller that wants
+ * one package's own resolution passes `registryFor()`'s result explicitly
+ * instead.
  */
 export const REGISTRY: RegistryEntry[] = await (async () => {
   const seen = new Set<string>();
