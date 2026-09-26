@@ -7,15 +7,22 @@ automated (CLI flags) or interactive (an `ink` wizard) mode.
 
 ## Installation
 
+`@sektek/generator-base` and `@sektek/generator-js` are peer dependencies, resolved at runtime rather
+than bundled — install whichever ones you actually want `gen` to drive alongside it:
+
 ```sh
-npm install -g @sektek/gen
+npm install -g @sektek/gen @sektek/generator-base @sektek/generator-js
 ```
+
+`gen` also works with any other `@<scope>/generator-<name>` package installed the same way (e.g.
+`npm install -g @acme/generator-widget`) — see `gen list <scope>/<name>` below.
 
 ## Usage
 
 ```sh
 gen <generator> [options]   # e.g. gen js:app, gen base:workspace
-gen list                    # see every available namespace
+gen list                    # see every available namespace from the installed default packages
+gen list <scope>/<name>     # e.g. gen list @acme/widget — list one specific package's namespaces
 ```
 
 Unprefixed names default to `@sektek/base` (e.g. `gen gitconfig` → `@sektek/base:gitconfig`); use a
