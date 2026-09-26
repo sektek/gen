@@ -1,10 +1,15 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { expect } from 'chai';
 
 import { runGenerator } from './run.js';
+
+const FIXTURE_GENERATOR_PATH = fileURLToPath(
+  new URL('./run-fixture-generator.mjs', import.meta.url),
+);
 
 describe('runGenerator', function () {
   let destinationRoot: string;
@@ -41,5 +46,22 @@ describe('runGenerator', function () {
     expect(packageJson.license).to.equal('MIT');
     expect(packageJson.private).to.be.true;
     expect(packageJson.author).to.equal('Test Author');
+  });
+
+  it('registers and runs a caller-supplied entries[] rather than only the default REGISTRY', async function () {
+    // Proves the entries threaded through by cli.ts's resolveNamespace()
+    // actually reach Environment#register()/run() — a namespace outside
+    // the two default packages (like this fixture's) would otherwise never
+    // get registered and environment.run() would fail to find it.
+    await runGenerator(
+      '@acme/widget:app',
+      {},
+      { destinationRoot, force: true },
+      [{ namespace: '@acme/widget:app', path: FIXTURE_GENERATOR_PATH }],
+    );
+
+    expect(readFileSync(join(destinationRoot, 'marker.txt'), 'utf8')).to.equal(
+      'fixture generator ran',
+    );
   });
 });

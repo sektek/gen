@@ -15,6 +15,7 @@ import sinon from 'sinon';
 
 import {
   REGISTRY,
+  buildRegistry,
   destinationModeFor,
   promptsFor,
   registerAll,
@@ -136,6 +137,86 @@ describe('registry', function () {
         rmSync(fixtureRoot, { recursive: true, force: true });
       }
     });
+
+    it("resolves a dependency npm nested under the parent package's own node_modules", async function () {
+      // Not present at fixtureRoot's own top-level node_modules, nor
+      // resolvable via the global fallback (it's not a real package
+      // anywhere) — only reachable by rooting the dependency's own
+      // resolution at the parent's directory, as a real `require()` made
+      // from within the parent's own source would.
+      const fixtureRoot = mkdtempSync(
+        join(tmpdir(), 'sektek-gen-registry-nested-'),
+      );
+      try {
+        const parentDir = join(
+          fixtureRoot,
+          'node_modules',
+          '@acme',
+          'generator-parent',
+        );
+        mkdirSync(join(parentDir, 'generators', 'app'), { recursive: true });
+        writeFileSync(
+          join(parentDir, 'package.json'),
+          JSON.stringify({
+            name: '@acme/generator-parent',
+            version: '0.0.0-fixture',
+            exports: {
+              './manifest': './manifest.js',
+              './generators/*': './generators/*/index.js',
+            },
+            dependencies: { '@acme/generator-child': '*' },
+          }),
+        );
+        writeFileSync(
+          join(parentDir, 'manifest.js'),
+          "export const GENERATORS = ['app'];\n",
+        );
+        writeFileSync(
+          join(parentDir, 'generators', 'app', 'index.js'),
+          'export {};\n',
+        );
+
+        const childDir = join(
+          parentDir,
+          'node_modules',
+          '@acme',
+          'generator-child',
+        );
+        mkdirSync(join(childDir, 'generators', 'thing'), {
+          recursive: true,
+        });
+        writeFileSync(
+          join(childDir, 'package.json'),
+          JSON.stringify({
+            name: '@acme/generator-child',
+            version: '0.0.0-fixture',
+            exports: {
+              './manifest': './manifest.js',
+              './generators/*': './generators/*/index.js',
+            },
+          }),
+        );
+        writeFileSync(
+          join(childDir, 'manifest.js'),
+          "export const GENERATORS = ['thing'];\n",
+        );
+        writeFileSync(
+          join(childDir, 'generators', 'thing', 'index.js'),
+          'export {};\n',
+        );
+
+        const namespaces = (
+          await registryFor('@acme/generator-parent', fixtureRoot)
+        ).map(entry => entry.namespace);
+
+        expect(namespaces).to.have.members([
+          '@acme/parent:app',
+          '@acme/child:thing',
+        ]);
+      } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('promptsFor', function () {
@@ -199,9 +280,9 @@ describe('registry', function () {
     });
   });
 
-  // REGISTRY/the single-argument forms are what cli.ts and run.ts actually
-  // call today; kept working (defaulting to REGISTRY) so this dynamic
-  // rewrite doesn't force those call sites to change in this same PR.
+  // cli.ts always passes explicit entries now, but run.ts's runGenerator()
+  // still defaults to REGISTRY for a caller with no specific package in
+  // mind (e.g. run.spec.ts's own default-registry test) — kept working.
   describe('single-argument defaults (REGISTRY)', function () {
     it('REGISTRY contains exactly both packages’ namespaces, deduped', async function () {
       const expected = new Set([...JS_NAMESPACES, ...BASE_NAMESPACES]);
@@ -235,6 +316,52 @@ describe('registry', function () {
 
     it('promptsFor() with no entries defaults to REGISTRY', async function () {
       expect(await promptsFor('@sektek/base:editorconfig')).to.deep.equal([]);
+    });
+  });
+
+  describe('buildRegistry', function () {
+    it('is best-effort: a root package that is not installed is skipped rather than thrown', async function () {
+      const entries = await buildRegistry(
+        ['@sektek/generator-base', '@acme/generator-does-not-exist'],
+        cwd,
+      );
+
+      expect(entries.map(entry => entry.namespace)).to.include(
+        '@sektek/base:app',
+      );
+    });
+
+    it('propagates an error other than GeneratorPackageNotFoundError rather than swallowing it', async function () {
+      const fixtureRoot = mkdtempSync(
+        join(tmpdir(), 'sektek-gen-registry-broken-'),
+      );
+      try {
+        const pkgDir = join(
+          fixtureRoot,
+          'node_modules',
+          '@acme',
+          'generator-broken',
+        );
+        mkdirSync(join(pkgDir, 'generators', 'app'), { recursive: true });
+        writeFileSync(
+          join(pkgDir, 'package.json'),
+          JSON.stringify({
+            name: '@acme/generator-broken',
+            version: '0.0.0-fixture',
+            exports: { './manifest': './manifest.js' },
+          }),
+        );
+        writeFileSync(
+          join(pkgDir, 'manifest.js'),
+          "throw new Error('manifest blew up');\n",
+        );
+
+        await expect(
+          buildRegistry(['@acme/generator-broken'], fixtureRoot),
+        ).to.be.rejectedWith(/manifest blew up/);
+      } finally {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+      }
     });
   });
 });

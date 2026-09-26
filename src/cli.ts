@@ -14,8 +14,17 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { omit } from 'lodash-es';
 
+import {
+  GeneratorPackageNotFoundError,
+  generatorPackageName,
+} from './package-resolver.js';
 import { type OptionSpec, PACKAGE_SCOPE_OPTIONS } from './schema.js';
-import { REGISTRY, destinationModeFor } from './registry.js';
+import {
+  ROOT_PACKAGES,
+  type RegistryEntry,
+  destinationModeFor,
+  registryFor,
+} from './registry.js';
 import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
 import {
   locateNewProject,
@@ -30,159 +39,238 @@ import { resolvePackageScopeDefault } from './package-scope.js';
 import { runGenerator } from './run.js';
 import { runWizard } from './run-wizard.js';
 
-// Package aliases "js"/"base" resolve to.
-const PREFIX_ALIASES: Record<string, string> = {
-  base: '@sektek/base',
-  js: '@sektek/js',
+// Bare-word sugar for the two default packages' :app generator — the only
+// remaining hardcoded special case; everything else is generalized parsing.
+const BARE_SUGAR: Record<string, string> = {
+  base: '@sektek/base:app',
+  js: '@sektek/js:app',
+};
+
+export type ResolvedGenerator = {
+  namespace: string;
+  entries: RegistryEntry[];
 };
 
 /**
- * The prefixes (`"base"`/`"js"`) whose package has a sub-generator named
- * `name` — e.g. `["base"]` for `"editorconfig"`, `["base", "js"]` for
- * `"app"`. A bare name never resolves through this any more (it always
- * means `@sektek/base:<name>`) — this only powers the "did you mean
- * 'js:<name>'" hint on an unknown-bare-name error.
+ * Parses a generator argument into its target npm package name and
+ * fully-qualified namespace, without resolving/validating anything on
+ * disk — see `resolveNamespace()` for the validating counterpart.
  *
- * @param name - A bare sub-generator name, with no package prefix.
- * @param knownNamespaces - Every namespace `REGISTRY` actually knows about.
- * @returns The matching prefixes, if any.
- */
-function prefixesFor(
-  name: string,
-  knownNamespaces: readonly string[],
-): string[] {
-  return knownNamespaces
-    .filter(ns => ns.split(':')[1] === name)
-    .map(
-      ns =>
-        Object.entries(PREFIX_ALIASES).find(
-          ([, pkg]) => pkg === ns.split(':')[0],
-        )?.[0],
-    )
-    .filter((prefix): prefix is string => prefix !== undefined);
-}
-
-/**
- * Builds the error for a `<prefix>:<name>` input whose prefix isn't a known
- * package alias.
+ * Every shape reduces to the canonical `@scope/name:subgen` form and is
+ * then parsed the same way, so a third-party `@acme/widget:app` is handled
+ * identically to `@sektek/base:app` — no package is special-cased beyond
+ * the `BARE_SUGAR` shortcuts above:
+ *
+ * - `@scope/name:subgen` (already-qualified) → package `@${scope}/generator-${name}`.
+ * - `name:subgen` (no `@scope/`) → scope defaults to `sektek`.
+ * - bare `subgen` (no colon, not `base`/`js`) → defaults to `@sektek/base:<subgen>`.
+ * - bare `base`/`js` → `BARE_SUGAR`'s literal shortcut.
  *
  * @param input - The generator argument as typed on the command line.
- * @returns An error describing why `input` couldn't be resolved.
+ * @returns The target package name and the namespace to look for within it.
  */
-function unknownPrefixError(input: string): Error {
-  return new Error(
-    `Unknown generator '${input}'. Expected 'base', 'js', 'base:<name>', 'js:<name>', or a fully-qualified '@sektek/<pkg>:<name>' namespace — a bare '<name>' with no prefix defaults to '@sektek/base:<name>'. Run 'gen list' to see every available generator.`,
-  );
+export function parseGeneratorInput(input: string): {
+  packageName: string;
+  namespace: string;
+} {
+  if (Object.hasOwn(BARE_SUGAR, input)) {
+    return parseGeneratorInput(BARE_SUGAR[input]);
+  }
+
+  if (!input.startsWith('@')) {
+    const colonIndex = input.indexOf(':');
+    return colonIndex === -1
+      ? parseGeneratorInput(`@sektek/base:${input}`)
+      : parseGeneratorInput(
+          `@sektek/${input.slice(0, colonIndex)}:${input.slice(colonIndex + 1)}`,
+        );
+  }
+
+  const colonIndex = input.indexOf(':');
+  if (colonIndex === -1) {
+    throw new Error(
+      `Unknown generator '${input}'. Expected '<subgen>', 'base', 'js', '<name>:<subgen>', or a fully-qualified '@scope/name:subgen' namespace. Run 'gen list' to see every available generator.`,
+    );
+  }
+  const prefix = input.slice(0, colonIndex);
+  const subgen = input.slice(colonIndex + 1);
+  const slashIndex = prefix.indexOf('/');
+  if (slashIndex === -1) {
+    throw new Error(
+      `Unknown generator '${input}'. Expected '@scope/name:subgen'. Run 'gen list' to see every available generator.`,
+    );
+  }
+
+  return {
+    packageName: generatorPackageName(
+      prefix.slice(1, slashIndex),
+      prefix.slice(slashIndex + 1),
+    ),
+    namespace: `${prefix}:${subgen}`,
+  };
 }
 
 /**
- * Builds the error for a bare name with no colon that isn't `js`/`base` and
- * doesn't resolve to a `@sektek/base:<name>` generator. Hints at `js:<name>`
- * when that namespace exists — a message nicety only, never a fallback: the
- * caller still has to type the prefix themselves to actually run it.
+ * Whether `subgen` is one of `@sektek/generator-js`'s own namespaces —
+ * powers the "did you mean 'js:<name>'?" hint on an unknown bare name.
+ * Deliberately specific to the two well-known default packages rather than
+ * generalized to arbitrary third parties (per the locked-in design) — a
+ * failed lookup here (e.g. generator-js isn't installed either) just omits
+ * the hint rather than compounding the original error.
  *
- * @param name - The bare generator name as typed on the command line.
- * @param knownNamespaces - Every namespace `REGISTRY` actually knows about.
- * @returns An error describing why `name` couldn't be resolved.
+ * @param subgen - The bare sub-generator name that failed to resolve against `@sektek/base`.
+ * @param cwd - The directory to resolve `@sektek/generator-js` from.
+ * @returns Whether `js:<subgen>` would have resolved instead.
  */
-function unknownBareNameError(
-  name: string,
-  knownNamespaces: readonly string[],
-): Error {
-  const hint = prefixesFor(name, knownNamespaces).includes('js')
-    ? ` Did you mean 'js:${name}'?`
-    : '';
-
-  return new Error(
-    `Unknown generator '${name}'.${hint} Run 'gen list' to see every available generator.`,
-  );
+async function existsInJs(subgen: string, cwd: string): Promise<boolean> {
+  try {
+    const entries = await registryFor('@sektek/generator-js', cwd);
+    return entries.some(entry => entry.namespace === `@sektek/js:${subgen}`);
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Resolves a generator argument (e.g. "js", "js:workspace",
- * "@sektek/base:app", "gitconfig") into a namespace, validated against the
- * known namespace list. From-scratch rather than yeoman-environment's own
- * alias(), which only handles single-segment names.
+ * "@sektek/base:app", "gitconfig", "@acme/widget:app") into a validated
+ * namespace and the registry entries its own package (and transitive
+ * `@<scope>/generator-*` dependencies) resolved to — from-scratch rather
+ * than yeoman-environment's own `alias()`, which only handles
+ * single-segment names.
  *
  * A bare name with no prefix always means `@sektek/base:<name>` (matching
  * how `yo` used to default to `generator-base`) — it never falls back to
  * `@sektek/js` even when only `js` has a matching generator.
  *
  * @param input - The generator argument as typed on the command line.
- * @param knownNamespaces - Every namespace `REGISTRY` actually knows about.
- * @returns The resolved, validated namespace.
+ * @param cwd - The directory to resolve the target package from.
+ * @returns The resolved, validated namespace and its package's entries.
  */
-export function resolveNamespace(
+export async function resolveNamespace(
   input: string,
-  knownNamespaces: readonly string[],
-): string {
-  if (input.startsWith('@')) {
-    return validateNamespace(input, knownNamespaces);
+  cwd: string,
+): Promise<ResolvedGenerator> {
+  const { packageName, namespace } = parseGeneratorInput(input);
+
+  const entries = await registryFor(packageName, cwd);
+  if (entries.some(entry => entry.namespace === namespace)) {
+    return { namespace, entries };
   }
 
   const colonIndex = input.indexOf(':');
+  const isDefaultedBareName = colonIndex === -1 && !input.startsWith('@');
+  const hint =
+    isDefaultedBareName && (await existsInJs(input, cwd))
+      ? ` Did you mean 'js:${input}'?`
+      : '';
 
-  if (colonIndex === -1) {
-    if (Object.hasOwn(PREFIX_ALIASES, input)) {
-      return validateNamespace(`${PREFIX_ALIASES[input]}:app`, knownNamespaces);
-    }
-
-    const namespace = `${PREFIX_ALIASES.base}:${input}`;
-    if (!knownNamespaces.includes(namespace)) {
-      throw unknownBareNameError(input, knownNamespaces);
-    }
-    return namespace;
-  }
-
-  const prefix = input.slice(0, colonIndex);
-  const alias = PREFIX_ALIASES[prefix];
-  if (!alias) {
-    throw unknownPrefixError(input);
-  }
-
-  const name = input.slice(colonIndex + 1);
-  return validateNamespace(`${alias}:${name}`, knownNamespaces);
+  throw new Error(
+    `Unknown generator '${namespace}'.${hint} Run 'gen list' to see every available generator.`,
+  );
 }
 
 /**
- * Validates a fully-resolved namespace against the known namespace list.
+ * Parses a `gen list` package argument (e.g. "@acme/widget" or "js") into
+ * the npm package it names — the same scope-defaulting convention as
+ * running a generator, but with no `:subgen` to also parse.
  *
- * @param namespace - The resolved namespace to validate.
- * @param knownNamespaces - Every namespace `REGISTRY` actually knows about.
- * @returns `namespace`, unchanged.
+ * @param arg - The package argument as typed on the command line.
+ * @returns The target package name.
  */
-function validateNamespace(
-  namespace: string,
-  knownNamespaces: readonly string[],
-): string {
-  if (!knownNamespaces.includes(namespace)) {
-    throw new Error(
-      `Unknown generator '${namespace}'. Run 'gen list' to see every available generator.`,
-    );
+function parsePackageArg(arg: string): string {
+  if (!arg.startsWith('@')) {
+    return generatorPackageName('sektek', arg);
   }
 
-  return namespace;
+  const slashIndex = arg.indexOf('/');
+  if (slashIndex === -1) {
+    throw new Error(`Invalid package '${arg}'. Expected '@scope/name'.`);
+  }
+  return generatorPackageName(
+    arg.slice(1, slashIndex),
+    arg.slice(slashIndex + 1),
+  );
 }
 
 /**
- * Prints every `REGISTRY` namespace, grouped by package.
+ * Prints a resolved package's namespaces, grouped by their own namespace
+ * prefix (a package's transitively-resolved dependencies print under their
+ * own prefix too, e.g. `@sektek/generator-js`'s entries include
+ * `@sektek/base:*` alongside `@sektek/js:*`).
+ *
+ * @param entries - The entries to print.
  */
-function printList(): void {
+function printEntries(entries: RegistryEntry[]): void {
   const groups = new Map<string, string[]>();
-  for (const { namespace } of REGISTRY) {
-    const [pkg, name] = namespace.split(':');
-    const names = groups.get(pkg) ?? [];
+  for (const { namespace } of entries) {
+    const [prefix, name] = namespace.split(':');
+    const names = groups.get(prefix) ?? [];
     names.push(name);
-    groups.set(pkg, names);
+    groups.set(prefix, names);
   }
 
-  for (const [pkg, names] of groups) {
-    console.log(chalk.bold(pkg));
+  for (const [prefix, names] of groups) {
+    console.log(chalk.bold(prefix));
     for (const name of names) {
-      const namespace = `${pkg}:${name}`;
+      const namespace = `${prefix}:${name}`;
       console.log(`  ${chalk.cyan(namespace)}`);
     }
   }
+}
+
+/**
+ * `gen list` with no argument: every sub-generator of `@sektek/generator-base`
+ * and `@sektek/generator-js`, resolved dynamically. A package that isn't
+ * installed is noted rather than failing the whole command — only when
+ * neither resolves does this exit non-zero.
+ *
+ * @param cwd - The directory to resolve each package from.
+ * @param rootPackages - The default packages to list; overridable for tests.
+ */
+export async function printDefaultList(
+  cwd: string,
+  rootPackages: readonly string[] = ROOT_PACKAGES,
+): Promise<void> {
+  const seen = new Set<string>();
+  let anyResolved = false;
+
+  for (const pkg of rootPackages) {
+    try {
+      printEntries(await registryFor(pkg, cwd, seen));
+      anyResolved = true;
+    } catch (error) {
+      if (!(error instanceof GeneratorPackageNotFoundError)) {
+        throw error;
+      }
+      console.log(chalk.dim(`${pkg}: not installed`));
+    }
+  }
+
+  if (!anyResolved) {
+    process.exitCode = 1;
+  }
+}
+
+/**
+ * `gen list <scope>/<name>`: one specific package's sub-generators.
+ *
+ * @param packageArg - The package argument as typed on the command line.
+ * @param cwd - The directory to resolve the package from.
+ */
+export async function printPackageList(
+  packageArg: string,
+  cwd: string,
+): Promise<void> {
+  let entries: RegistryEntry[];
+  try {
+    entries = await registryFor(parsePackageArg(packageArg), cwd);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    return;
+  }
+  printEntries(entries);
 }
 
 /**
@@ -192,16 +280,20 @@ function printUsage(): void {
   console.log(
     [
       'Usage: gen <generator> [options]',
-      '       gen list',
+      '       gen list [<scope>/<name>]',
       '',
       "A bare '<name>' with no prefix defaults to '@sektek/base:<name>';",
-      "use 'js:<name>' to reach a @sektek/js generator instead.",
+      "use 'js:<name>' to reach a @sektek/js generator instead. Any other",
+      "installed package works the same way: '<name>:<subgen>' defaults to",
+      "scope 'sektek', or use a fully-qualified '@scope/name:subgen'.",
       '',
       'Examples:',
       '  $ gen list',
+      '  $ gen list @acme/widget',
       '  $ gen js:app --yes --language typescript --dest ./my-project',
       '  $ gen readme',
       '  $ gen base:readme',
+      '  $ gen @acme/widget:app',
     ].join('\n'),
   );
 }
@@ -409,6 +501,39 @@ type CliOptions = {
 };
 
 /**
+ * Runs the `gen list [<scope>/<name>]` command.
+ *
+ * @param packageArg - `rawArgs[1]`: the optional package argument.
+ */
+async function runList(packageArg: string | undefined): Promise<void> {
+  if (packageArg) {
+    await printPackageList(packageArg, process.cwd());
+  } else {
+    await printDefaultList(process.cwd());
+  }
+}
+
+/**
+ * `resolveNamespace()`, printing and flagging (rather than throwing) on
+ * failure — the shape `main()`'s top-level control flow wants.
+ *
+ * @param generatorArg - The generator argument as typed on the command line.
+ * @returns The resolved generator, or `undefined` once an error's been
+ *   printed and `process.exitCode` set.
+ */
+async function tryResolveNamespace(
+  generatorArg: string,
+): Promise<ResolvedGenerator | undefined> {
+  try {
+    return await resolveNamespace(generatorArg, process.cwd());
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+    return undefined;
+  }
+}
+
+/**
  * Parses argv and either lists every generator or runs the one resolved
  * from the `<generator>` argument, in automated or interactive mode.
  *
@@ -418,7 +543,7 @@ export async function main(argv: string[]): Promise<void> {
   const rawArgs = argv.slice(2);
 
   if (rawArgs[0] === 'list') {
-    printList();
+    await runList(rawArgs[1]);
     return;
   }
 
@@ -435,16 +560,11 @@ export async function main(argv: string[]): Promise<void> {
     return;
   }
 
-  const knownNamespaces = REGISTRY.map(entry => entry.namespace);
-
-  let namespace: string;
-  try {
-    namespace = resolveNamespace(generatorArg, knownNamespaces);
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exitCode = 1;
+  const resolved = await tryResolveNamespace(generatorArg);
+  if (!resolved) {
     return;
   }
+  const { namespace, entries } = resolved;
 
   const program = new Command();
   program
@@ -463,7 +583,7 @@ export async function main(argv: string[]): Promise<void> {
       `\nExample:\n  $ gen ${namespace} --yes --dest ./my-project\n`,
     );
 
-  const mode = await destinationModeFor(namespace);
+  const mode = await destinationModeFor(namespace, entries);
   // Only the flag shape matters before parsing; defaults are re-resolved
   // below once configDefaults and the workspace are known.
   const flagSpecs = await promptSpecsFor(mode, {
@@ -570,8 +690,10 @@ export async function main(argv: string[]): Promise<void> {
     ];
   }
 
-  await runGenerator(namespace, options, {
-    destinationRoot,
-    force: Boolean(force),
-  });
+  await runGenerator(
+    namespace,
+    options,
+    { destinationRoot, force: Boolean(force) },
+    entries,
+  );
 }
