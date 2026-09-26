@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.17.0](https://github.com/sektek/gen/compare/v0.16.0...v0.17.0) (2026-09-26)
+
+### Features
+
+* **gen:** generalize CLI namespace resolution to arbitrary @scope/name packages; redesign gen list ([#26](https://github.com/sektek/gen/issues/26)) ([090aca5](https://github.com/sektek/gen/commit/090aca57af5f593b5da2a7ebf0051eb79fbcead0))
+
 ## [0.16.0](https://github.com/sektek/gen/compare/v0.15.0...v0.16.0) (2026-09-25)
 
 ### Features
