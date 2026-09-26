@@ -20,14 +20,17 @@ npm install -g @sektek/gen @sektek/generator-base @sektek/generator-js
 ## Usage
 
 ```sh
-gen <generator> [options]   # e.g. gen js:app, gen base:workspace
+gen <generator> [options]   # e.g. gen js:app, gen base:workspace, gen @acme/widget:app
 gen list                    # see every available namespace from the installed default packages
 gen list <scope>/<name>     # e.g. gen list @acme/widget — list one specific package's namespaces
 ```
 
-Unprefixed names default to `@sektek/base` (e.g. `gen gitconfig` → `@sektek/base:gitconfig`); use a
-`js:` prefix to reach `@sektek/generator-js` instead (e.g. `gen js:gitconfig`). Runs interactively
-when stdout/stdin are both a TTY, or pass `--yes` to force automated mode.
+`<generator>` is `[@scope/]name[:subgen]`, generalized to any installed `@<scope>/generator-<name>`
+package, not just the two defaults: an unprefixed bare name (e.g. `gen gitconfig`) defaults to
+`@sektek/base:<name>`; `name:subgen` (e.g. `gen js:gitconfig`) defaults to scope `sektek`; a
+fully-qualified `@scope/name:subgen` (e.g. `gen @acme/widget:app`) reaches any other installed
+package the same way. Runs interactively when stdout/stdin are both a TTY, or pass `--yes` to force
+automated mode.
 
 Config-file defaults (`gen.config.{js,yaml,json}`, discovered by walking the directory tree from
 `cwd` up to the filesystem root, plus the home directory) pre-fill both modes — see
