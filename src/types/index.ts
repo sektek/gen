@@ -1,8 +1,6 @@
 export type { DestinationRootArgs } from './destination-root-args.js';
-export type { EditResult } from './edit-result.js';
 export type { GitConfigReader } from './git-config-reader.js';
 export type { GitInitImplicationsResult } from './git-init-implications-result.js';
-export type { Hint } from './hint.js';
 export type { LicenseImplicationsResult } from './license-implications-result.js';
 export type { NewProjectLocation } from './new-project-location.js';
 export type { OptionKind } from './option-kind.js';
@@ -12,6 +10,5 @@ export type { RegistryEntry } from './registry-entry.js';
 export type { ResolveGeneratedDestinationOptions } from './resolve-generated-destination-options.js';
 export type { RunEnv } from './run-env.js';
 export type { RunWizardOptions } from './run-wizard-options.js';
-export type { WizardChoice } from './wizard-choice.js';
 export type { WizardResult } from './wizard-result.js';
 export type { WorkspaceRoot } from './workspace-root.js';

@@ -3,8 +3,7 @@ import type { ReactNode } from 'react';
 import TextInput from 'ink-text-input';
 import chalk from 'chalk';
 
-import { isClearable, reloadableCapability } from '../wizard-steps.js';
-
+import { isClearable, reloadableCapability } from './steps/index.js';
 import { GeneratedTextInput } from './generated-text-input.js';
 import type { RenderInputArgs } from './types/index.js';
 

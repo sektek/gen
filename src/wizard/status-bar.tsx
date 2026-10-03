@@ -1,6 +1,6 @@
 import { Box, Text } from 'ink';
 
-import type { Hint } from '../types/index.js';
+import type { Hint } from './types/index.js';
 
 /**
  * The persistent hint bar rendered below the current step's input: a

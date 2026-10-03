@@ -14,7 +14,7 @@ describe('applyGitInitImplications', function () {
 
   // Regression test for the exact combination Copilot flagged on gen#12:
   // an explicit createRepo: true seed (e.g. `--create-repo` alongside
-  // `--no-git-init`) survives wizard-steps.ts's own "seed always wins"
+  // `--no-git-init`) survives wizard/steps's own "seed always wins"
   // rule, so this is the layer that has to catch it instead.
   it('overrides an explicit createRepo: true to false, with a warning', function () {
     const result = applyGitInitImplications({

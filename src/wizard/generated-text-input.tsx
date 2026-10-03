@@ -1,14 +1,12 @@
 import { Text, useInput } from 'ink';
 import { useEffect, useRef, useState } from 'react';
 
+import type { EditResult, GeneratedTextInputProps } from './types/index.js';
 import {
   applyBackspace,
   applyTypedInput,
   reintroducePrefix,
-} from '../wizard-steps.js';
-import type { EditResult } from '../types/index.js';
-
-import type { GeneratedTextInputProps } from './types/index.js';
+} from './steps/index.js';
 
 /**
  * A `<TextInput>`-alike for a `generateDefault`/`generateDefaultAsync`

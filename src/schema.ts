@@ -66,7 +66,7 @@ export const JS_OPTIONS: OptionSpec[] = [
 // User-supplied npm packages to add as dependencies/devDependencies, each
 // entry a `package-name` or `package-name@version` string. JS/TS-only, so
 // merged only into schemaFor()'s @sektek/js:* branch. Deliberately excluded
-// from the interactive wizard (see wizard-steps.ts's pendingSpecs()) — CLI
+// from the interactive wizard (see wizard/steps's pendingSpecs()) — CLI
 // flags or a config file only.
 export const DEPENDENCY_OPTIONS: OptionSpec[] = [
   {

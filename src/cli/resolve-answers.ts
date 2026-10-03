@@ -1,4 +1,4 @@
-import { explicitOptionKeysFromWizard } from '../wizard-steps.js';
+import { explicitOptionKeysFromWizard } from '../wizard/steps/index.js';
 import { resolve } from '../options.js';
 import { runWizard } from '../run-wizard.js';
 

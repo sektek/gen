@@ -3,6 +3,9 @@ import { type ProviderFn, getComponent } from '@sektek/utility-belt';
 import { useEffect, useRef, useState } from 'react';
 import type { PromptContext } from '@sektek/generator';
 
+import { PROJECT_NAME_KEY } from '../project-name.js';
+
+import type { CompletedStep, WizardProps } from './types/index.js';
 import {
   clearableCapability,
   hintsFor,
@@ -12,10 +15,7 @@ import {
   projectNameError,
   projectNamePrefix,
   reloadableCapability,
-} from '../wizard-steps.js';
-import { PROJECT_NAME_KEY } from '../project-name.js';
-
-import type { CompletedStep, WizardProps } from './types/index.js';
+} from './steps/index.js';
 import { StatusBar } from './status-bar.js';
 import { displayValue } from './display-value.js';
 import { isPromiseLike } from './is-promise-like.js';
@@ -23,7 +23,7 @@ import { renderInput } from './render-input.js';
 
 // Not unit-tested: ink TTY rendering is impractical to exercise outside a
 // real terminal. The pure step-sequencing logic is unit-tested in
-// wizard-steps.ts instead.
+// wizard/steps/ instead.
 
 /**
  * Steps through a namespace's option schema one prompt at a time,
@@ -224,7 +224,7 @@ export function Wizard({
 
   // Validated submit for the project-name step specifically: rejects (with
   // an inline error, leaving the step open to retry) an unsafe or
-  // already-taken name instead of advancing — see wizard-steps.ts's
+  // already-taken name instead of advancing — see wizard/steps's
   // projectNameError(). A GitHub repo-name collision is still left to
   // resolveGeneratedDestination after the wizard completes, since
   // `createRepo` isn't known yet here.

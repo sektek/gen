@@ -17,7 +17,7 @@ const SAFE_PATH_SEGMENT = /^[^/\\]+$/;
  * Whether `name` is safe to join onto a directory as a single path segment
  * — used both for the hard guard in `resolveGeneratedDestination` below and
  * for the wizard's inline validation of a user-typed project name (see
- * `wizard-steps.ts#projectNameError`), where a graceful rejection is wanted
+ * `wizard/steps/project-name-error.ts`), where a graceful rejection is wanted
  * instead of a thrown error.
  *
  * @param name - The candidate name.
