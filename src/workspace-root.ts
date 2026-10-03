@@ -3,10 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import { configSearchPaths } from '@sektek/generator';
 
-export type WorkspaceRoot = {
-  root: string;
-  name: string;
-};
+import type { WorkspaceRoot } from './types/index.js';
 
 function readPackageJson(dir: string): Record<string, unknown> | undefined {
   const path = join(dir, 'package.json');

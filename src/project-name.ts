@@ -2,13 +2,8 @@ import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 
+import type { ResolveGeneratedDestinationOptions } from './types/index.js';
 import { resolveGeneratorPackagePath } from './package-resolver.js';
-
-// Inline rather than a static `import type` specifier, so nothing in this
-// file needs @sektek/generator-base resolvable at the module graph level —
-// only through resolveGeneratorPackagePath() below, the same as the
-// runtime import.
-type GithubClient = import('@sektek/generator-base').GithubClient;
 
 // A generated name must be exactly one safe path segment — no separators,
 // no dot-segments — before it's ever joined onto `cwd`. Otherwise a bad
@@ -51,17 +46,6 @@ function assertSafePathSegment(name: string): void {
 // Matches `projectNamePrompt`'s own `name` — the wizard validates this
 // step's answer against the filesystem (see wizard.tsx's submitGenerated).
 export const PROJECT_NAME_KEY = 'projectName';
-
-export type ResolveGeneratedDestinationOptions = {
-  cwd: string;
-  createRepo?: boolean;
-  repoOwner?: string;
-  githubToken?: string;
-  generateName?: () => string | PromiseLike<string>;
-  maxAttempts?: number;
-  // Test-only DI seam, mirroring GithubGeneratorOptions#githubClient.
-  githubClient?: GithubClient;
-};
 
 /**
  * Picks an available `adjective-noun` destination directory under `cwd`:

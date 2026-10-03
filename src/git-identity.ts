@@ -1,7 +1,7 @@
 import childProcess from 'node:child_process';
 import { promisify } from 'node:util';
 
-export type GitConfigReader = (key: string) => Promise<string | undefined>;
+import type { GitConfigReader } from './types/index.js';
 
 /**
  * Reads a single `git config` value via the real `git` CLI, trimmed.

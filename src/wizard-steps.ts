@@ -3,8 +3,13 @@ import { join } from 'node:path';
 
 import type { PromptCapability, PromptContext } from '@sektek/generator';
 
+import type {
+  EditResult,
+  Hint,
+  OptionSpec,
+  WizardChoice,
+} from './types/index.js';
 import { PROJECT_NAME_KEY, isSafePathSegment } from './project-name.js';
-import type { OptionSpec } from './schema.js';
 
 /**
  * The `spec.capabilities` entry of the given `type`, if any — the lookup
@@ -96,11 +101,6 @@ export function reintroducePrefix(prefix: string, input: string): EditResult {
   const value = `${prefix}-${input}`;
   return { value, cursorOffset: value.length };
 }
-
-export type WizardChoice = {
-  label: string;
-  value: unknown;
-};
 
 /**
  * The schema entries the wizard still needs to prompt for: any key
@@ -269,7 +269,7 @@ export function createRepoImpliedAnswers(
  * (`initialAnswers`/`mergeAnswer`); an explicit conflicting seed (e.g.
  * `--create-repo` alongside `--no-git-init`) still wins here by the same
  * "seed always wins" rule documented on `initialAnswers` — that conflict is
- * instead caught downstream by `applyGitInitImplications` (`cli.ts`), which
+ * instead caught downstream by `applyGitInitImplications` (`cli/main.ts`), which
  * runs once on the final resolved answers regardless of path, mirroring how
  * `applyLicenseImplications` already catches the analogous `license`/
  * `private` conflict.
@@ -433,11 +433,6 @@ export function projectNameError(
   return undefined;
 }
 
-export type EditResult = {
-  value: string;
-  cursorOffset: number;
-};
-
 /**
  * The result of pressing backspace *or* forward-delete in
  * `GeneratedTextInput`: on a still-pristine (`isPristine`) generated
@@ -520,11 +515,6 @@ export function applyTypedInput(
     cursorOffset: cursorOffset + input.length,
   };
 }
-
-export type Hint = {
-  key: string;
-  label: string;
-};
 
 /**
  * The keybinding hints for the wizard's persistent status bar (see

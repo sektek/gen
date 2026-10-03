@@ -1,7 +1,8 @@
 import { expect, use } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
-import { type OptionSpec, schemaFor, withConfigDefaults } from './schema.js';
+import { schemaFor, withConfigDefaults } from './schema.js';
+import type { OptionSpec } from './types/index.js';
 
 use(chaiAsPromised);
 

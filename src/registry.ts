@@ -14,11 +14,7 @@ import {
   GeneratorPackageNotFoundError,
   resolveGeneratorPackagePath,
 } from './package-resolver.js';
-
-export type RegistryEntry = {
-  namespace: string;
-  path: string;
-};
+import type { RegistryEntry } from './types/index.js';
 
 type PackageJson = {
   name?: string;
@@ -182,7 +178,7 @@ export async function buildRegistry(
  *
  * Built via `buildRegistry()`'s best-effort behavior deliberately: this is
  * a top-level `await`, so an uncaught rejection here would fail *importing
- * this module* (and therefore anything that imports it, e.g. `cli.ts`)
+ * this module* (and therefore anything that imports it, e.g. `cli/`)
  * before any caller's own try/catch (e.g. `printDefaultList()`'s
  * per-package handling) ever gets a chance to run.
  */

@@ -1,25 +1,7 @@
 import { pathToFileURL } from 'node:url';
 
+import type { PackageScopeDefaultOptions } from './types/index.js';
 import { resolveGeneratorPackagePath } from './package-resolver.js';
-
-// Inline rather than a static `import type` specifier, so nothing in this
-// file needs @sektek/generator-base resolvable at the module graph level —
-// only through resolveGeneratorPackagePath() below, the same as the
-// runtime import.
-type GithubClient = import('@sektek/generator-base').GithubClient;
-
-export type PackageScopeDefaultOptions = {
-  createRepo?: boolean;
-  repoOwner?: string;
-  githubToken?: string;
-  // Resolution root for @sektek/generator-base. Defaults to process.cwd()
-  // since neither real call site has a more precise cwd on hand; kept as a
-  // parameter so tests can inject a fixture directory instead of mocking
-  // process.cwd().
-  cwd?: string;
-  // Test-only DI seam, mirroring project-name.ts's ResolveGeneratedDestinationOptions#githubClient.
-  githubClient?: GithubClient;
-};
 
 /**
  * Derives the default npm scope: empty when no GitHub repo is being

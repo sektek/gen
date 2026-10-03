@@ -2,13 +2,9 @@ import { resolve } from 'node:path';
 
 import type { DestinationMode } from '@sektek/generator';
 
-import { type WorkspaceRoot, findWorkspaceRoot } from './workspace-root.js';
+import type { DestinationRootArgs, NewProjectLocation } from './types/index.js';
+import { findWorkspaceRoot } from './workspace-root.js';
 import { resolveGeneratedDestination } from './project-name.js';
-
-export type NewProjectLocation = {
-  parentDir: string;
-  workspace?: WorkspaceRoot;
-};
 
 /**
  * Where a `newProjectDir` generator's project directory goes when `--dest`
@@ -31,15 +27,6 @@ export function locateNewProject(
     ? { parentDir: resolve(workspace.root, mode.subdir), workspace }
     : { parentDir: cwd };
 }
-
-export type DestinationRootArgs = {
-  destGiven: boolean;
-  dest: string;
-  mode: DestinationMode;
-  projectName?: string;
-  generateName?: () => string | PromiseLike<string>;
-  options: Record<string, unknown>;
-};
 
 /**
  * Resolves the directory to scaffold into: `dest` verbatim when `--dest`

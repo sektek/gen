@@ -1,8 +1,4 @@
-export type LicenseImplicationsResult = {
-  resolved: Record<string, unknown>;
-  warnings: string[];
-};
-
+import type { LicenseImplicationsResult } from './types/index.js';
 /**
  * When `resolved.license` is `'UNLICENSED'`, forces `private`/
  * `repoVisibility` (whichever are present) to their private value,

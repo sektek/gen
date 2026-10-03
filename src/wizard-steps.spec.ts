@@ -24,7 +24,7 @@ import {
   reintroducePrefix,
   reloadableCapability,
 } from './wizard-steps.js';
-import type { OptionSpec } from './schema.js';
+import type { OptionSpec } from './types/index.js';
 import { PROJECT_NAME_KEY } from './project-name.js';
 
 const textSpec: OptionSpec = {
