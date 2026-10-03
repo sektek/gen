@@ -1,5 +1,6 @@
 import type { OptionSpec } from '../types/index.js';
-import { choicesFor } from '../wizard-steps.js';
+
+import { choicesFor } from './steps/index.js';
 
 /**
  * The human-readable form of an answered step's value, for scrollback:

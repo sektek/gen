@@ -11,7 +11,7 @@ import type { OptionKind, OptionSpec } from './types/index.js';
 
 // `Prompt` has no `choices` field (yet), so a 'select' kind can't actually
 // be represented — the resulting OptionSpec would have no `choices`, and
-// wizard-steps.ts's choicesFor() throws the moment such a spec reaches the
+// wizard/steps's choicesFor() throws the moment such a spec reaches the
 // wizard. 'list' specs are never prompted for interactively either way
 // (see pendingSpecs()), so neither kind is reachable/supported through
 // this adapter today; only 'text'/'boolean' (every real Prompt in this

@@ -2,8 +2,7 @@ import { Box, Text } from 'ink';
 import type { ReactNode } from 'react';
 import SelectInput from 'ink-select-input';
 
-import { choicesFor, defaultIndexFor } from '../wizard-steps.js';
-
+import { choicesFor, defaultIndexFor } from './steps/index.js';
 import type { RenderInputArgs } from './types/index.js';
 
 /**

@@ -6,7 +6,7 @@ import type { GitInitImplicationsResult } from './types/index.js';
  * git repo — declining `gitInit` makes that invariant, not just the
  * default.
  *
- * This is the safety net for the case `wizard-steps.ts`'s
+ * This is the safety net for the case `wizard/steps`'s
  * `gitInitImpliedAnswers` can't close on its own: an explicit conflicting
  * seed (e.g. `--create-repo` alongside `--no-git-init`) wins over the
  * wizard's own implied skip by design (see `initialAnswers`'s "seed always
