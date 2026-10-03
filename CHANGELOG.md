@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.18.1](https://github.com/sektek/gen/compare/v0.18.0...v0.18.1) (2026-10-03)
+
+### Bug Fixes
+
+* **gen:** quit the wizard cleanly on ctrl+c, SIGTERM and SIGHUP ([#43](https://github.com/sektek/gen/issues/43)) ([1d207d1](https://github.com/sektek/gen/commit/1d207d115c7150e33b9dfa58d3efea33fd84ee83))
+
 ## [0.18.0](https://github.com/sektek/gen/compare/v0.17.0...v0.18.0) (2026-10-03)
 
 ### ⚠ BREAKING CHANGES
