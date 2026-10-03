@@ -1,24 +1,22 @@
 import { expect } from 'chai';
 
 import { isInteractive } from './is-interactive.js';
+import { overrideProperty } from './override-property.js';
 
 describe('isInteractive', function () {
-  let originalStdout: boolean | undefined;
-  let originalStdin: boolean | undefined;
+  const restores: Array<() => void> = [];
 
   const setTty = (stdout: boolean, stdin: boolean) => {
-    process.stdout.isTTY = stdout;
-    process.stdin.isTTY = stdin;
+    restores.push(
+      overrideProperty(process.stdout, 'isTTY', stdout),
+      overrideProperty(process.stdin, 'isTTY', stdin),
+    );
   };
 
-  beforeEach(function () {
-    originalStdout = process.stdout.isTTY;
-    originalStdin = process.stdin.isTTY;
-  });
-
   afterEach(function () {
-    process.stdout.isTTY = originalStdout;
-    process.stdin.isTTY = originalStdin;
+    while (restores.length > 0) {
+      restores.pop()!();
+    }
   });
 
   it('is true when both streams are TTYs and --no-interactive was not given', function () {

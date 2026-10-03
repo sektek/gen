@@ -23,6 +23,7 @@
     "lint": "eslint . --cache",
     "release": "release-it --ci",
     "test": "mocha",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:cover": "c8 npm run test"
   },
   "dependencies": {
