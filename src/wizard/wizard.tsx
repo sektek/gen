@@ -1,19 +1,14 @@
 import { Box, Static, Text } from 'ink';
 import { type ProviderFn, getComponent } from '@sektek/utility-belt';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PromptContext } from '@sektek/generator';
-import SelectInput from 'ink-select-input';
-import TextInput from 'ink-text-input';
-import chalk from 'chalk';
 
-import type { OptionKind, OptionSpec, WizardProps } from '../types/index.js';
+import type { OptionSpec, WizardProps } from '../types/index.js';
 import {
   choicesFor,
   clearableCapability,
-  defaultIndexFor,
   hintsFor,
   initialAnswers,
-  isClearable,
   mergeAnswer,
   pendingSpecs,
   projectNameError,
@@ -22,8 +17,8 @@ import {
 } from '../wizard-steps.js';
 import { PROJECT_NAME_KEY } from '../project-name.js';
 
-import { GeneratedTextInput } from './generated-text-input.js';
 import { StatusBar } from './status-bar.js';
+import { renderInput } from './render-input.js';
 
 /**
  * True for a value returned from a reloadable capability's provider (or
@@ -371,200 +366,4 @@ function displayValue(spec: OptionSpec, value: unknown): string {
     }
   }
   return value === undefined || value === null ? '' : String(value);
-}
-
-type RenderInputArgs = {
-  spec: OptionSpec;
-  textValue: string;
-  setTextValue: (value: string) => void;
-  advance: (value: unknown) => void;
-  dynamicDefault: string | undefined;
-  isPristine: boolean;
-  resolving: boolean;
-  error: string | undefined;
-  prefix: string | undefined;
-  prefixSuppressed: boolean;
-  canRegenerate: boolean;
-  onRegenerate: () => void;
-  onClear: () => void;
-  onGeneratedSubmit: (value: string) => void;
-};
-
-type InputRenderer = (args: RenderInputArgs) => ReactNode;
-
-/**
- * A "Resolving…" line, a pre-filled/editable `GeneratedTextInput` row (for
- * a `reloadable`-capable or `generateDefaultAsync` spec), or a plain
- * `<TextInput>` row for any other `text` spec.
- *
- * @param args - The current step, plus the wizard-level state/callbacks it needs.
- * @param args.spec - The option spec currently being prompted for.
- * @param args.textValue - The text input's current (uncommitted) value.
- * @param args.setTextValue - Updates the text input's current value.
- * @param args.advance - Records the answered value and moves to the next step.
- * @param args.dynamicDefault - The current live-resolved default, if any.
- * @param args.isPristine - Whether the field still shows that default unedited.
- * @param args.resolving - Whether an async default is still resolving.
- * @param args.error - An inline validation error to show below the input, if any.
- * @param args.prefix - The project-name step's workspace/config prefix, if any.
- * @param args.prefixSuppressed - The project-name step's ctrl+x clear state.
- * @param args.canRegenerate - Whether ctrl+r currently regenerates.
- * @param args.onRegenerate - Requests a fresh value for a `reloadable`-capable spec.
- * @param args.onClear - Notifies a ctrl+x clear on the project-name step.
- * @param args.onGeneratedSubmit - Validates (project-name) or resolves a clear (`clearable`) before recording the answer.
- * @returns The prompt + input for this step.
- */
-function renderTextInput({
-  spec,
-  textValue,
-  setTextValue,
-  advance,
-  dynamicDefault,
-  isPristine,
-  resolving,
-  error,
-  prefix,
-  prefixSuppressed,
-  canRegenerate,
-  onRegenerate,
-  onClear,
-  onGeneratedSubmit,
-}: RenderInputArgs): ReactNode {
-  if (resolving) {
-    return (
-      <Box>
-        <Text dimColor>{spec.prompt}: Resolving…</Text>
-      </Box>
-    );
-  }
-
-  const reload = reloadableCapability(spec);
-  if (reload || spec.generateDefaultAsync) {
-    return (
-      <Box flexDirection="column">
-        <Box>
-          <Text>{spec.prompt}: </Text>
-          <GeneratedTextInput
-            value={textValue}
-            isPristine={isPristine}
-            dynamicDefault={dynamicDefault ?? ''}
-            allowClear={isClearable(spec)}
-            prefix={prefix}
-            prefixSuppressed={prefixSuppressed}
-            canRegenerate={canRegenerate}
-            onClear={onClear}
-            onChange={setTextValue}
-            onRegenerate={onRegenerate}
-            onSubmit={onGeneratedSubmit}
-          />
-        </Box>
-        {error && <Text color="red">{error}</Text>}
-      </Box>
-    );
-  }
-
-  // Not <TextInput placeholder={defaultText}>: ink-text-input only
-  // inverts a placeholder's own first character when it's the one
-  // passed placeholder text — an unstyled default here reintroduces the
-  // leading-space/misplaced-cursor bug from SEK-93.
-  const defaultText =
-    spec.default !== undefined ? String(spec.default) : undefined;
-  const showGhost = textValue === '' && defaultText !== undefined;
-  return (
-    <Box>
-      <Text>{spec.prompt}: </Text>
-      <TextInput
-        value={textValue}
-        onChange={setTextValue}
-        showCursor={!showGhost}
-        onSubmit={value => advance(value === '' ? spec.default : value)}
-      />
-      {showGhost && (
-        <Text>
-          {defaultText.length > 0
-            ? chalk.inverse(defaultText[0]) + chalk.dim(defaultText.slice(1))
-            : chalk.inverse(' ')}
-        </Text>
-      )}
-    </Box>
-  );
-}
-
-/**
- * The prompt label above a `<SelectInput>` — shared by `select` and
- * `boolean` (a synthetic Yes/No choice list, see `choicesFor()`).
- *
- * @param args - The current step, plus the wizard-level state/callbacks it needs.
- * @param args.spec - The option spec currently being prompted for.
- * @param args.advance - Records the answered value and moves to the next step.
- * @returns The prompt + select list for this step.
- */
-function renderSelectInput({ spec, advance }: RenderInputArgs): ReactNode {
-  const choices = choicesFor(spec);
-  return (
-    <Box flexDirection="column">
-      <Text>{spec.prompt}</Text>
-      <SelectInput
-        items={choices}
-        initialIndex={defaultIndexFor(spec, choices)}
-        onSelect={item => advance(item.value)}
-      />
-    </Box>
-  );
-}
-
-/**
- * Defensive placeholder for `INPUT_RENDERERS`'s `'list'` entry — structurally
- * unreachable, since `pendingSpecs()` filters `'list'` specs out before the
- * wizard ever sees one, but registered anyway so the mapping stays total
- * over every `OptionKind` rather than partial.
- *
- * @param args - The current step.
- * @param args.spec - The option spec that reached this renderer.
- * @throws {Error} Always — reaching this function is a bug, not a real UI state.
- */
-function renderUnsupportedInput({ spec }: RenderInputArgs): ReactNode {
-  throw new Error(
-    `renderInput(): '${spec.kind}' specs are never prompted for interactively (see pendingSpecs()) — this should be unreachable.`,
-  );
-}
-
-// gen's own closed, fixed mapping from an OptionSpec's kind to the Ink
-// component that renders it — every prompt type the wizard can show, in
-// one place, rather than a growing if/else chain (see the project's
-// "component-type ownership" decision: gen owns this, libs/generator's
-// prompt definitions stay free of any Ink/React dependency). 'list' specs
-// are never actually reached here (pendingSpecs() filters them out before
-// the wizard ever sees one) but are still registered, for a total mapping
-// over every OptionKind rather than a partial one.
-const INPUT_RENDERERS: Record<OptionKind, InputRenderer> = {
-  text: renderTextInput,
-  boolean: renderSelectInput,
-  select: renderSelectInput,
-  list: renderUnsupportedInput,
-};
-
-/**
- * Renders the prompt label plus input for the current step, dispatching on
- * `spec.kind` via `INPUT_RENDERERS`.
- *
- * @param args - The current step, plus the wizard-level state/callbacks it needs.
- * @param args.spec - The option spec currently being prompted for.
- * @param args.textValue - The text input's current (uncommitted) value.
- * @param args.setTextValue - Updates the text input's current value.
- * @param args.advance - Records the answered value and moves to the next step.
- * @param args.dynamicDefault - The current live-resolved default, if any.
- * @param args.isPristine - Whether such a spec's field still shows that default unedited.
- * @param args.resolving - Whether an async default is still resolving.
- * @param args.error - An inline validation error to show below the project-name step's input, if any.
- * @param args.prefix - The project-name step's workspace/config prefix, if any.
- * @param args.prefixSuppressed - The project-name step's ctrl+x clear state.
- * @param args.canRegenerate - Whether ctrl+r currently regenerates.
- * @param args.onRegenerate - Requests a fresh value for a `reloadable`-capable spec.
- * @param args.onClear - Notifies a ctrl+x clear on the project-name step.
- * @param args.onGeneratedSubmit - Validates (project-name) or resolves a clear (`clearable`) before recording a `reloadable`/`generateDefaultAsync` spec's answer.
- * @returns The prompt + input for this step.
- */
-function renderInput(args: RenderInputArgs): ReactNode {
-  return INPUT_RENDERERS[args.spec.kind](args);
 }
