@@ -67,7 +67,7 @@ describe('main', function () {
         'node',
         'gen',
         'js:base-package',
-        '--yes',
+        '--no-interactive',
         '--dest',
         destinationRoot,
         '--package-scope',
@@ -142,7 +142,7 @@ describe('main', function () {
         'node',
         'gen',
         'js:base-package',
-        '--yes',
+        '--no-interactive',
         '--dest',
         dest,
         '--package-scope',
@@ -189,7 +189,7 @@ describe('main', function () {
         'node',
         'gen',
         'js:base-package',
-        '--yes',
+        '--no-interactive',
         '--dest',
         destinationRoot,
         '--package-scope',
@@ -237,7 +237,13 @@ describe('main', function () {
     });
 
     it('scaffolds a newProjectDir generator into an auto-generated adjective-noun directory under cwd', async function () {
-      await main(['node', 'gen', 'base:app', '--yes', '--no-git-init']);
+      await main([
+        'node',
+        'gen',
+        'base:app',
+        '--no-interactive',
+        '--no-git-init',
+      ]);
 
       const entries = readdirSync(generatedCwd);
       expect(entries).to.have.lengthOf(1);
@@ -245,7 +251,13 @@ describe('main', function () {
     });
 
     it('persists the generated directory name as projectName', async function () {
-      await main(['node', 'gen', 'base:app', '--yes', '--no-git-init']);
+      await main([
+        'node',
+        'gen',
+        'base:app',
+        '--no-interactive',
+        '--no-git-init',
+      ]);
 
       const [generated] = readdirSync(generatedCwd);
       expect(
@@ -258,7 +270,7 @@ describe('main', function () {
         'node',
         'gen',
         'base:app',
-        '--yes',
+        '--no-interactive',
         '--no-git-init',
         '--project-name',
         'my-thing',
@@ -273,7 +285,13 @@ describe('main', function () {
         JSON.stringify({ projectName: 'sektek-messaging' }),
       );
 
-      await main(['node', 'gen', 'base:app', '--yes', '--no-git-init']);
+      await main([
+        'node',
+        'gen',
+        'base:app',
+        '--no-interactive',
+        '--no-git-init',
+      ]);
 
       const generated = readdirSync(generatedCwd).filter(
         name => name !== 'gen.config.json',
@@ -287,7 +305,7 @@ describe('main', function () {
         'node',
         'gen',
         'base:app',
-        '--yes',
+        '--no-interactive',
         '--no-git-init',
         '--dest',
         join(generatedCwd, 'explicit-dir'),
@@ -302,7 +320,7 @@ describe('main', function () {
     });
 
     it('scaffolds an inPlace generator straight into cwd', async function () {
-      await main(['node', 'gen', 'base:editorconfig', '--yes']);
+      await main(['node', 'gen', 'base:editorconfig', '--no-interactive']);
 
       expect(readdirSync(generatedCwd)).to.deep.equal(['.editorconfig']);
     });
@@ -319,7 +337,13 @@ describe('main', function () {
         JSON.stringify({ createRepo: 'false', repoOwner: 42 }),
       );
 
-      await main(['node', 'gen', 'base:app', '--yes', '--no-git-init']);
+      await main([
+        'node',
+        'gen',
+        'base:app',
+        '--no-interactive',
+        '--no-git-init',
+      ]);
 
       const generated = readdirSync(generatedCwd).find(name =>
         /^[a-z]+-[a-z]+$/.test(name),
@@ -347,7 +371,7 @@ describe('main', function () {
         'node',
         'gen',
         'js:base-package',
-        '--yes',
+        '--no-interactive',
         '--dest',
         destinationRoot,
       ]);
@@ -363,7 +387,7 @@ describe('main', function () {
         'node',
         'gen',
         'js:base-package',
-        '--yes',
+        '--no-interactive',
         '--dest',
         destinationRoot,
         '--package-scope',
@@ -413,7 +437,7 @@ describe('main', function () {
         'node',
         'gen',
         'js:base-package',
-        '--yes',
+        '--no-interactive',
         '--dest',
         destinationRoot,
       ]);
@@ -423,5 +447,68 @@ describe('main', function () {
       );
       expect(packageJson.name).to.match(/^@acme\//);
     });
+  });
+
+  describe('--no-interactive', function () {
+    let destinationRoot: string;
+    let originalStdout: boolean | undefined;
+    let originalStdin: boolean | undefined;
+
+    beforeEach(function () {
+      originalStdout = process.stdout.isTTY;
+      originalStdin = process.stdin.isTTY;
+      destinationRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-dest-'));
+    });
+
+    afterEach(function () {
+      process.stdout.isTTY = originalStdout;
+      process.stdin.isTTY = originalStdin;
+      rmSync(destinationRoot, { recursive: true, force: true });
+    });
+
+    it('skips the wizard even when both streams are TTYs', async function () {
+      process.stdout.isTTY = true;
+      process.stdin.isTTY = true;
+
+      await main([
+        'node',
+        'gen',
+        'base:editorconfig',
+        '--no-interactive',
+        '--dest',
+        destinationRoot,
+      ]);
+
+      expect(readdirSync(destinationRoot)).to.include('.editorconfig');
+    });
+
+    for (const flag of ['--yes', '-y']) {
+      it(`rejects ${flag} as an unknown option`, async function () {
+        const originalExit = process.exit;
+        const originalWrite = process.stderr.write;
+        let stderr = '';
+        process.exit = ((code?: number) => {
+          throw new Error(`exit ${code}`);
+        }) as typeof process.exit;
+        process.stderr.write = ((chunk: string | Uint8Array) => {
+          stderr += String(chunk);
+          return true;
+        }) as typeof process.stderr.write;
+
+        try {
+          let error: unknown;
+          try {
+            await main(['node', 'gen', 'base:editorconfig', flag]);
+          } catch (e) {
+            error = e;
+          }
+          expect(error).to.be.an('error').with.property('message', 'exit 1');
+          expect(stderr).to.include('unknown option');
+        } finally {
+          process.exit = originalExit;
+          process.stderr.write = originalWrite;
+        }
+      });
+    }
   });
 });

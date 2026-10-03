@@ -17,7 +17,7 @@ export function printUsage(): void {
       'Examples:',
       '  $ gen list',
       '  $ gen list @acme/widget',
-      '  $ gen js:app --yes --language typescript --dest ./my-project',
+      '  $ gen js:app --no-interactive --language typescript --dest ./my-project',
       '  $ gen readme',
       '  $ gen base:readme',
       '  $ gen @acme/widget:app',

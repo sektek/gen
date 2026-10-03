@@ -71,7 +71,12 @@ export async function main(argv: string[]): Promise<void> {
   const program = buildProgram(namespace, flagSpecs);
   program.parse(argv);
 
-  const { yes, install, force, dest } = program.opts<CliOptions>();
+  const {
+    interactive: interactiveOption,
+    install,
+    force,
+    dest,
+  } = program.opts<CliOptions>();
   const destGiven = program.getOptionValueSource('dest') === 'cli';
 
   // Only what the user actually typed, schema-driven (including the
@@ -91,7 +96,7 @@ export async function main(argv: string[]): Promise<void> {
     destGiven ? dest : undefined,
   );
 
-  const interactive = isInteractive(yes);
+  const interactive = isInteractive(interactiveOption);
   const newProject =
     !destGiven && mode.kind === 'newProjectDir'
       ? locateNewProject(dest, mode)

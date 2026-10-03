@@ -20,7 +20,10 @@ export function buildProgram(
     .name('gen')
     .description(`Run the ${namespace} generator`)
     .argument('<generator>', 'Generator to run, e.g. "js:app" or "base:readme"')
-    .option('-y, --yes', 'Force automated mode even in an interactive terminal')
+    .option(
+      '--no-interactive',
+      'Force automated mode even in an interactive terminal',
+    )
     .option(
       '--install',
       'Run the package manager install step (skipped by default)',
@@ -29,7 +32,7 @@ export function buildProgram(
     .option('--dest <path>', 'Destination directory', process.cwd())
     .addHelpText(
       'after',
-      `\nExample:\n  $ gen ${namespace} --yes --dest ./my-project\n`,
+      `\nExample:\n  $ gen ${namespace} --no-interactive --dest ./my-project\n`,
     );
 
   addSchemaOptions(program, namespace, flagSpecs);
