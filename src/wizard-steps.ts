@@ -56,7 +56,7 @@ export function clearableCapability(spec: OptionSpec) {
  * step has no `clearable` capability of its own — an empty project name is
  * never a valid stored value, so there's nothing for `clearable`'s `value`
  * fallback to mean for it — but still supports ctrl+x, via the prefix-aware
- * handling in wizard/wizard.tsx's GeneratedTextInput rather than the generic
+ * handling in wizard/generated-text-input.tsx's GeneratedTextInput rather than the generic
  * `clearable` capability.
  *
  * @param spec - The option spec to check.
@@ -88,7 +88,7 @@ export function projectNamePrefix(
 
 /**
  * Reintroduces a suppressed project-name prefix the moment typing resumes
- * on a cleared field (wizard/wizard.tsx's GeneratedTextInput) — mirrors the same
+ * on a cleared field (wizard/generated-text-input.tsx's GeneratedTextInput) — mirrors the same
  * `${prefix}-${randomProjectName()}` joiner `@sektek/generator`'s own
  * `projectNamePrompt` uses, so the reintroduced text reads exactly like a
  * freshly-generated prefixed default would.
@@ -409,7 +409,7 @@ export function defaultIndexFor(
 
 /**
  * Validates a candidate project name for the wizard's project-name step
- * (see wizard/wizard.tsx's GeneratedTextInput): rejects anything that isn't a safe
+ * (see wizard/generated-text-input.tsx's GeneratedTextInput): rejects anything that isn't a safe
  * single path segment, or that already exists as a directory under `cwd`.
  * Only a cheap, synchronous, local check — a GitHub repo-name collision
  * (only possible once `createRepo` is known, answered by a later step) is
