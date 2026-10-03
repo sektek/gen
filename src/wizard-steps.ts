@@ -518,7 +518,7 @@ export function applyTypedInput(
 
 /**
  * The keybinding hints for the wizard's persistent status bar (see
- * wizard/wizard.tsx's `StatusBar`): which keys do what for the current step, kept
+ * wizard/status-bar.tsx's `StatusBar`): which keys do what for the current step, kept
  * separate from any inline validation error (which is about the specific
  * value just typed, not the step in general). `undefined` (no step left,
  * i.e. the wizard is about to finish) shows nothing.
