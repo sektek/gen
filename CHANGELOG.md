@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.18.0](https://github.com/sektek/gen/compare/v0.17.0...v0.18.0) (2026-10-03)
+
+### ⚠ BREAKING CHANGES
+
+* **gen:** replace --yes with --no-interactive (#41)
+
+### Features
+
+* **gen:** replace --yes with --no-interactive ([#41](https://github.com/sektek/gen/issues/41)) ([1fd44e9](https://github.com/sektek/gen/commit/1fd44e9c8215b95a23e0348958c3681d6b42b398))
+
 ## [0.17.0](https://github.com/sektek/gen/compare/v0.16.0...v0.17.0) (2026-09-26)
 
 ### Features
