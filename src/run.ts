@@ -1,7 +1,7 @@
 import Environment from 'yeoman-environment';
 
 import type { RegistryEntry, RunEnv } from './types/index.js';
-import { registerAll } from './registry.js';
+import { registerAll } from './registry/index.js';
 
 /**
  * Registers every given generator entry, then runs exactly one with a

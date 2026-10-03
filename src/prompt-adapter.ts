@@ -77,7 +77,7 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
 }
 
 /**
- * Translates a namespace's fully-assembled `Prompt[]` (see `registry.ts`'s
+ * Translates a namespace's fully-assembled `Prompt[]` (see `registry/`'s
  * `promptsFor()`) into `schema.ts`'s `OptionSpec[]` shape, per this
  * project's decision to adapt into `OptionSpec` rather than replace it
  * outright. Same-name prompts are merged first (see `mergeByName()`).
@@ -94,7 +94,7 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
  *   reads that field, only a spec's static `default` (see
  *   `packageScopeExtraSpecs()`'s own comment on the same tradeoff).
  *
- * @param prompts - The namespace's own assembled prompts (see `registry.ts`'s `promptsFor()`).
+ * @param prompts - The namespace's own assembled prompts (see `registry/`'s `promptsFor()`).
  * @param context - The answers/flags-given snapshot to evaluate `provider`/`includePrompt` against.
  * @returns One `OptionSpec` per included prompt, after merging same-name entries.
  */

@@ -12,7 +12,7 @@ import {
 } from '../destination-root.js';
 import { applyGitInitImplications } from '../git-init-implications.js';
 import { applyLicenseImplications } from '../license-implications.js';
-import { destinationModeFor } from '../registry.js';
+import { destinationModeFor } from '../registry/index.js';
 import { flagsGivenFor } from '../options.js';
 import { runGenerator } from '../run.js';
 

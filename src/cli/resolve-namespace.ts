@@ -1,4 +1,4 @@
-import { registryFor } from '../registry.js';
+import { registryFor } from '../registry/index.js';
 
 import type { ResolvedGenerator } from './types/index.js';
 import { existsInJs } from './exists-in-js.js';
