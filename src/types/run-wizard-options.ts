@@ -7,7 +7,7 @@ export type RunWizardOptions = {
   // cover, asked ahead of the namespace's own schema.
   leadingSpecs?: OptionSpec[];
   // Required whenever `leadingSpecs` includes the project-name step, for
-  // validating a candidate name against the filesystem — see wizard.tsx's
+  // validating a candidate name against the filesystem — see wizard/wizard.tsx's
   // `destCwd` prop.
   destCwd?: string;
   promptContext?: Pick<PromptContext, 'configDefaults' | 'workspace'>;

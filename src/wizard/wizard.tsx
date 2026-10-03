@@ -12,7 +12,7 @@ import type {
   OptionKind,
   OptionSpec,
   WizardProps,
-} from './types/index.js';
+} from '../types/index.js';
 import {
   applyBackspace,
   applyTypedInput,
@@ -28,8 +28,8 @@ import {
   projectNamePrefix,
   reintroducePrefix,
   reloadableCapability,
-} from './wizard-steps.js';
-import { PROJECT_NAME_KEY } from './project-name.js';
+} from '../wizard-steps.js';
+import { PROJECT_NAME_KEY } from '../project-name.js';
 
 /**
  * True for a value returned from a reloadable capability's provider (or

@@ -44,7 +44,7 @@ function assertSafePathSegment(name: string): void {
 }
 
 // Matches `projectNamePrompt`'s own `name` — the wizard validates this
-// step's answer against the filesystem (see wizard.tsx's submitGenerated).
+// step's answer against the filesystem (see wizard/wizard.tsx's submitGenerated).
 export const PROJECT_NAME_KEY = 'projectName';
 
 /**
