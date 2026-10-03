@@ -17,6 +17,7 @@ import {
 } from '../git-identity.js';
 
 import { main } from './index.js';
+import { overrideProperty } from './override-property.js';
 
 // Under tsx a SIGTERM/SIGHUP with no listener of its own ends the test
 // process, so keep one for the duration of each test that emits them.
@@ -456,24 +457,24 @@ describe('main', function () {
 
   describe('--no-interactive', function () {
     let destinationRoot: string;
-    let originalStdout: boolean | undefined;
-    let originalStdin: boolean | undefined;
+    const restores: Array<() => void> = [];
 
     beforeEach(function () {
-      originalStdout = process.stdout.isTTY;
-      originalStdin = process.stdin.isTTY;
       destinationRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-dest-'));
     });
 
     afterEach(function () {
-      process.stdout.isTTY = originalStdout;
-      process.stdin.isTTY = originalStdin;
+      while (restores.length > 0) {
+        restores.pop()!();
+      }
       rmSync(destinationRoot, { recursive: true, force: true });
     });
 
     it('skips the wizard even when both streams are TTYs', async function () {
-      process.stdout.isTTY = true;
-      process.stdin.isTTY = true;
+      restores.push(
+        overrideProperty(process.stdout, 'isTTY', true),
+        overrideProperty(process.stdin, 'isTTY', true),
+      );
 
       await main([
         'node',
@@ -523,24 +524,6 @@ describe('main', function () {
     let originalExitCode: typeof process.exitCode;
     const restores: Array<() => void> = [];
 
-    const overrideProperty = (
-      target: object,
-      property: string,
-      value: unknown,
-    ) => {
-      const descriptor = Object.getOwnPropertyDescriptor(target, property);
-      Object.defineProperty(target, property, {
-        value,
-        configurable: true,
-        writable: true,
-      });
-      restores.push(() =>
-        descriptor
-          ? Object.defineProperty(target, property, descriptor)
-          : Reflect.deleteProperty(target, property),
-      );
-    };
-
     const waitFor = async (condition: () => boolean, timeoutMs = 5000) => {
       const deadline = Date.now() + timeoutMs;
       while (!condition()) {
@@ -556,9 +539,11 @@ describe('main', function () {
       originalCwd = process.cwd();
       originalExitCode = process.exitCode;
       process.chdir(generatedCwd);
-      overrideProperty(process.stdin, 'isTTY', true);
-      overrideProperty(process.stdout, 'isTTY', true);
-      overrideProperty(process.stdin, 'setRawMode', () => process.stdin);
+      restores.push(
+        overrideProperty(process.stdin, 'isTTY', true),
+        overrideProperty(process.stdout, 'isTTY', true),
+        overrideProperty(process.stdin, 'setRawMode', () => process.stdin),
+      );
       sinon.stub(console, 'log');
       process.on('SIGTERM', noop);
       process.on('SIGHUP', noop);
