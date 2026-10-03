@@ -1,4 +1,3 @@
-export type { CliOptions } from './cli-options.js';
 export type { DestinationRootArgs } from './destination-root-args.js';
 export type { EditResult } from './edit-result.js';
 export type { GitConfigReader } from './git-config-reader.js';
@@ -10,10 +9,7 @@ export type { OptionKind } from './option-kind.js';
 export type { OptionSpec } from './option-spec.js';
 export type { PackageScopeDefaultOptions } from './package-scope-default-options.js';
 export type { RegistryEntry } from './registry-entry.js';
-export type { ResolveAnswersArgs } from './resolve-answers-args.js';
 export type { ResolveGeneratedDestinationOptions } from './resolve-generated-destination-options.js';
-export type { ResolvedAnswers } from './resolved-answers.js';
-export type { ResolvedGenerator } from './resolved-generator.js';
 export type { RunEnv } from './run-env.js';
 export type { RunWizardOptions } from './run-wizard-options.js';
 export type { WizardChoice } from './wizard-choice.js';

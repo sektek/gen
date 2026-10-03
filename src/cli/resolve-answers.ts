@@ -1,8 +1,8 @@
-import type { ResolveAnswersArgs, ResolvedAnswers } from '../types/index.js';
 import { explicitOptionKeysFromWizard } from '../wizard-steps.js';
 import { resolve } from '../options.js';
 import { runWizard } from '../run-wizard.js';
 
+import type { ResolveAnswersArgs, ResolvedAnswers } from './types/index.js';
 import { packageScopeExtraSpecs } from './package-scope-extra-specs.js';
 
 /**

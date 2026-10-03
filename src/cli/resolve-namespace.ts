@@ -1,6 +1,6 @@
-import type { ResolvedGenerator } from '../types/index.js';
 import { registryFor } from '../registry.js';
 
+import type { ResolvedGenerator } from './types/index.js';
 import { existsInJs } from './exists-in-js.js';
 import { parseGeneratorInput } from './parse-generator-input.js';
 

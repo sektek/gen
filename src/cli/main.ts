@@ -10,13 +10,13 @@ import {
   locateNewProject,
   resolveDestinationRoot,
 } from '../destination-root.js';
-import type { CliOptions } from '../types/index.js';
 import { applyGitInitImplications } from '../git-init-implications.js';
 import { applyLicenseImplications } from '../license-implications.js';
 import { destinationModeFor } from '../registry.js';
 import { flagsGivenFor } from '../options.js';
 import { runGenerator } from '../run.js';
 
+import type { CliOptions } from './types/index.js';
 import { buildProgram } from './build-program.js';
 import { isInteractive } from './is-interactive.js';
 import { loadConfigDefaults } from './load-config-defaults.js';

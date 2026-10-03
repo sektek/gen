@@ -1,7 +1,6 @@
 /* eslint-disable no-console */
 
-import type { ResolvedGenerator } from '../types/index.js';
-
+import type { ResolvedGenerator } from './types/index.js';
 import { resolveNamespace } from './resolve-namespace.js';
 
 /**
