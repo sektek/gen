@@ -1,4 +1,4 @@
-import { Box, Static, Text } from 'ink';
+import { Box, Static, Text, useInput } from 'ink';
 import { type ProviderFn, getComponent } from '@sektek/utility-belt';
 import { useEffect, useRef, useState } from 'react';
 import type { PromptContext } from '@sektek/generator';
@@ -36,6 +36,7 @@ import { renderInput } from './render-input.js';
  *   plus the keys actually prompted for and answered live (excluding any
  *   from `seed` or merely implied by an implied-answers rule, e.g.
  *   `licenseImpliedAnswers`/`gitInitImpliedAnswers`/`createRepoImpliedAnswers`).
+ * @param props.onCancel - Called when the user presses ctrl+c.
  * @param props.destCwd - The directory the project-name step's answer would be created under.
  * @param props.promptContext - The `configDefaults`/`workspace` half of the
  *   `PromptContext` a reloadable capability's provider is called with.
@@ -46,6 +47,7 @@ export function Wizard({
   schema,
   seed,
   onComplete,
+  onCancel,
   destCwd,
   promptContext = { configDefaults: {} },
 }: WizardProps) {
@@ -210,6 +212,14 @@ export function Wizard({
     // step's snapshot is wanted; adding it would re-trigger the network
     // call on every subsequent answer.
   }, [spec?.key]);
+
+  // runWizard() turns off ink's exitOnCtrlC; in raw mode ctrl+c is a key
+  // press rather than SIGINT, so it has to be caught here.
+  useInput((input, key) => {
+    if (key.ctrl && input === 'c') {
+      onCancel?.();
+    }
+  });
 
   const advance = (value: unknown) => {
     if (!spec) {

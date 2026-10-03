@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { expect } from 'chai';
+import sinon from 'sinon';
 
 import {
   resetGitConfigReaderForTesting,
@@ -16,6 +17,10 @@ import {
 } from '../git-identity.js';
 
 import { main } from './index.js';
+
+// Under tsx a SIGTERM/SIGHUP with no listener of its own ends the test
+// process, so keep one for the duration of each test that emits them.
+const noop = () => {};
 
 describe('main', function () {
   // Regression coverage for the config-defaults wiring itself (SEK-42):
@@ -510,5 +515,79 @@ describe('main', function () {
         }
       });
     }
+  });
+
+  describe('cancelling the interactive wizard', function () {
+    let generatedCwd: string;
+    let originalCwd: string;
+    let originalExitCode: typeof process.exitCode;
+    const restores: Array<() => void> = [];
+
+    const fakeTty = (stream: NodeJS.ReadStream | NodeJS.WriteStream) => {
+      const descriptor = Object.getOwnPropertyDescriptor(stream, 'isTTY');
+      Object.defineProperty(stream, 'isTTY', {
+        value: true,
+        configurable: true,
+      });
+      restores.push(() =>
+        descriptor
+          ? Object.defineProperty(stream, 'isTTY', descriptor)
+          : delete (stream as { isTTY?: boolean }).isTTY,
+      );
+    };
+
+    beforeEach(function () {
+      generatedCwd = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-cancel-'));
+      originalCwd = process.cwd();
+      originalExitCode = process.exitCode;
+      process.chdir(generatedCwd);
+      fakeTty(process.stdin);
+      fakeTty(process.stdout);
+      const stdin = process.stdin as NodeJS.ReadStream & {
+        setRawMode?: (mode: boolean) => void;
+      };
+      const hadSetRawMode = 'setRawMode' in stdin;
+      stdin.setRawMode = () => stdin;
+      restores.push(() => {
+        if (!hadSetRawMode) {
+          delete stdin.setRawMode;
+        }
+      });
+      sinon.stub(console, 'log');
+      process.on('SIGTERM', noop);
+      process.on('SIGHUP', noop);
+    });
+
+    afterEach(function () {
+      sinon.restore();
+      process.off('SIGTERM', noop);
+      process.off('SIGHUP', noop);
+      while (restores.length > 0) {
+        restores.pop()!();
+      }
+      process.exitCode = originalExitCode;
+      process.chdir(originalCwd);
+      rmSync(generatedCwd, { recursive: true, force: true });
+    });
+
+    const cancelWith = async (signal: NodeJS.Signals) => {
+      const running = main(['node', 'gen', 'base:app', '--no-git-init']);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      process.emit(signal);
+      await running;
+    };
+
+    it('sets exit code 143 for SIGTERM and generates nothing', async function () {
+      await cancelWith('SIGTERM');
+
+      expect(process.exitCode).to.equal(143);
+      expect(readdirSync(generatedCwd)).to.deep.equal([]);
+    });
+
+    it('sets exit code 129 for SIGHUP', async function () {
+      await cancelWith('SIGHUP');
+
+      expect(process.exitCode).to.equal(129);
+    });
   });
 });

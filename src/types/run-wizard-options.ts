@@ -1,4 +1,5 @@
 import type { PromptContext } from '@sektek/generator';
+import type { render } from 'ink';
 
 import type { OptionSpec } from './option-spec.js';
 
@@ -11,4 +12,6 @@ export type RunWizardOptions = {
   // `destCwd` prop.
   destCwd?: string;
   promptContext?: Pick<PromptContext, 'configDefaults' | 'workspace'>;
+  // Replaces ink's render(); lets tests drive the wizard without a TTY.
+  renderApp?: typeof render;
 };
