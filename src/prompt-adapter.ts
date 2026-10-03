@@ -7,7 +7,7 @@ import {
 import type { Prompt, PromptContext } from '@sektek/generator';
 import { kebabCase } from 'lodash-es';
 
-import { type OptionKind, type OptionSpec } from './schema.js';
+import type { OptionKind, OptionSpec } from './types/index.js';
 
 // `Prompt` has no `choices` field (yet), so a 'select' kind can't actually
 // be represented — the resulting OptionSpec would have no `choices`, and
@@ -83,7 +83,7 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
  * outright. Same-name prompts are merged first (see `mergeByName()`).
  *
  * Both `includePrompt` and `provider` are evaluated eagerly against
- * `context`, the same way `cli.ts`'s own `packageScopeExtraSpecs()` already
+ * `context`, the same way the `cli` directory's own `packageScopeExtraSpecs()` already
  * resolves a dynamic default outside the wizard:
  * - A prompt whose `includePrompt` resolves `false` is left out of the
  *   result entirely, rather than carried forward as some live/deferred

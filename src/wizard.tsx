@@ -6,9 +6,14 @@ import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import chalk from 'chalk';
 
+import type {
+  EditResult,
+  Hint,
+  OptionKind,
+  OptionSpec,
+  WizardProps,
+} from './types/index.js';
 import {
-  type EditResult,
-  type Hint,
   applyBackspace,
   applyTypedInput,
   choicesFor,
@@ -24,7 +29,6 @@ import {
   reintroducePrefix,
   reloadableCapability,
 } from './wizard-steps.js';
-import type { OptionKind, OptionSpec } from './schema.js';
 import { PROJECT_NAME_KEY } from './project-name.js';
 
 /**
@@ -49,21 +53,6 @@ function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
 type CompletedStep = {
   key: string;
   text: string;
-};
-
-export type WizardProps = {
-  schema: OptionSpec[];
-  seed: Record<string, unknown>;
-  onComplete: (
-    answers: Record<string, unknown>,
-    answeredKeys: string[],
-  ) => void;
-  // Only needed when `schema` includes a spec with `generateDefault` (the
-  // project-name step cli.ts adds ahead of the namespace's own schema) —
-  // the directory that name would be created under, for projectNameError()'s
-  // local collision check. Unused by every other spec kind.
-  destCwd?: string;
-  promptContext?: Pick<PromptContext, 'configDefaults' | 'workspace'>;
 };
 
 // Not unit-tested: ink TTY rendering is impractical to exercise outside a

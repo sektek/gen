@@ -280,7 +280,7 @@ describe('registry', function () {
     });
   });
 
-  // cli.ts always passes explicit entries now, but run.ts's runGenerator()
+  // cli/ always passes explicit entries now, but run.ts's runGenerator()
   // still defaults to REGISTRY for a caller with no specific package in
   // mind (e.g. run.spec.ts's own default-registry test) — kept working.
   describe('single-argument defaults (REGISTRY)', function () {

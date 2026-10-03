@@ -1,28 +1,12 @@
-import type { PromptContext } from '@sektek/generator';
 import { createElement } from 'react';
 import { render } from 'ink';
 
-import { type OptionSpec, schemaFor, withConfigDefaults } from './schema.js';
+import type { RunWizardOptions, WizardResult } from './types/index.js';
+import { schemaFor, withConfigDefaults } from './schema.js';
 import { Wizard } from './wizard.js';
 
 // Plain .ts, not .tsx: this file has no JSX syntax of its own (createElement
 // instead), so it doesn't need the tsx parser — only wizard.tsx does.
-
-export type WizardResult = {
-  answers: Record<string, unknown>;
-  answeredKeys: string[];
-};
-
-export type RunWizardOptions = {
-  // Prompt-sourced specs (see prompt-adapter.ts) that schema.ts doesn't
-  // cover, asked ahead of the namespace's own schema.
-  leadingSpecs?: OptionSpec[];
-  // Required whenever `leadingSpecs` includes the project-name step, for
-  // validating a candidate name against the filesystem — see wizard.tsx's
-  // `destCwd` prop.
-  destCwd?: string;
-  promptContext?: Pick<PromptContext, 'configDefaults' | 'workspace'>;
-};
 
 /**
  * Bridges ink's component/callback model into async/await: mounts the

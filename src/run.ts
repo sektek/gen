@@ -1,11 +1,7 @@
 import Environment from 'yeoman-environment';
 
-import { type RegistryEntry, registerAll } from './registry.js';
-
-export type RunEnv = {
-  destinationRoot: string;
-  force: boolean;
-};
+import type { RegistryEntry, RunEnv } from './types/index.js';
+import { registerAll } from './registry.js';
 
 /**
  * Registers every given generator entry, then runs exactly one with a
@@ -21,7 +17,7 @@ export type RunEnv = {
  * @param env - Where to write output, and whether to force-overwrite conflicts.
  * @param entries - The entries to register; defaults to `registerAll()`'s
  *   own process-wide `REGISTRY` default. A caller that already resolved
- *   `generatorNamespace` via `registryFor()` (e.g. `cli.ts`, for a
+ *   `generatorNamespace` via `registryFor()` (e.g. `cli/`, for a
  *   namespace outside the two default packages) should pass that result
  *   here — otherwise a namespace `REGISTRY` doesn't know about would never
  *   get registered, and `environment.run()` would fail to find it.

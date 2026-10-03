@@ -49,7 +49,7 @@ describe('runGenerator', function () {
   });
 
   it('registers and runs a caller-supplied entries[] rather than only the default REGISTRY', async function () {
-    // Proves the entries threaded through by cli.ts's resolveNamespace()
+    // Proves the entries threaded through by the cli directory's resolveNamespace()
     // actually reach Environment#register()/run() — a namespace outside
     // the two default packages (like this fixture's) would otherwise never
     // get registered and environment.run() would fail to find it.

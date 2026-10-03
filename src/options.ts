@@ -1,6 +1,7 @@
 import { type Command, Option } from 'commander';
 
-import { type OptionSpec, schemaFor } from './schema.js';
+import type { OptionSpec } from './types/index.js';
+import { schemaFor } from './schema.js';
 
 /**
  * Adds one commander `.option(...)` per entry in a namespace's schema. A
@@ -14,7 +15,7 @@ import { type OptionSpec, schemaFor } from './schema.js';
  * accumulator's own `[]` starting value is a commander mechanism, not a
  * schema default, and is unwound by `flagsGivenFor()` the same way):
  * `resolve()` below is the one place schema defaults get applied, so
- * `command.opts()` only reports what a user actually typed — `cli.ts`
+ * `command.opts()` only reports what a user actually typed — `cli/main.ts`
  * depends on that to seed the interactive wizard with just the
  * explicitly-given flags.
  *
@@ -104,7 +105,7 @@ function repeatFlagValues(
  * key mapped to what was actually typed on the CLI, verified via
  * `getOptionValueSource()` so an option's implicit/default value never
  * looks "given" (the same nuance a negated boolean flag like `--no-private`
- * already needed, now handled here instead of ad hoc in `cli.ts`).
+ * already needed, now handled here instead of ad hoc in `cli/`).
  *
  * A `kind: 'list'` spec's two flags collapse into one `spec.key` entry:
  * `flag`'s value (comma-split, trimmed, empties dropped) concatenated with
@@ -157,7 +158,7 @@ export function flagsGivenFor(
  * @param flagsGiven - Option values already supplied (CLI flags or wizard answers).
  * @param configDefaults - Values resolved via `resolveConfigDefaults()`.
  * @param extraSpecs - Specs layered on top of `schemaFor(namespace)` — used
- *   by tests, and by cli.ts's automated-path `packageScopeExtraSpecs()` to
+ *   by tests, and by the `cli` directory's automated-path `packageScopeExtraSpecs()` to
  *   fold in an eagerly-resolved dynamic default the same way a real schema
  *   default would apply.
  * @returns The fully-resolved options object.

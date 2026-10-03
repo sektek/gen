@@ -1,8 +1,4 @@
-export type GitInitImplicationsResult = {
-  resolved: Record<string, unknown>;
-  warnings: string[];
-};
-
+import type { GitInitImplicationsResult } from './types/index.js';
 /**
  * When `resolved.gitInit` is `false`, forces `createRepo` (if present) to
  * `false`, recording a warning if its explicit value was overridden.
