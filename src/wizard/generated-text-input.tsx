@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { EditResult, GeneratedTextInputProps } from './types/index.js';
 import {
   applyBackspace,
+  applyDelete,
   applyTypedInput,
   reintroducePrefix,
 } from './steps/index.js';
@@ -101,6 +102,14 @@ export function GeneratedTextInput({
       ? reintroducePrefix(prefix, input)
       : applyTypedInput(value, cursorOffset, isPristine, input);
 
+  const eraseInput = (forward: boolean): EditResult =>
+    (forward ? applyDelete : applyBackspace)(
+      value,
+      cursorOffset,
+      isPristine,
+      backspaceRestoreTarget,
+    );
+
   useInput((input, key) => {
     if (key.ctrl && input === 'r') {
       if (canRegenerate) {
@@ -133,11 +142,7 @@ export function GeneratedTextInput({
       return;
     }
     if (key.backspace || key.delete) {
-      // Both keys, deliberately: see applyBackspace()'s doc comment for why
-      // key.delete has to be treated as backspace here, not forward-delete.
-      applyEdit(
-        applyBackspace(value, cursorOffset, isPristine, backspaceRestoreTarget),
-      );
+      applyEdit(eraseInput(key.delete));
       return;
     }
     if (input) {

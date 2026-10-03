@@ -1,4 +1,5 @@
 export { applyBackspace } from './apply-backspace.js';
+export { applyDelete } from './apply-delete.js';
 export { applyTypedInput } from './apply-typed-input.js';
 export { choicesFor } from './choices-for.js';
 export { clearableCapability } from './clearable-capability.js';
