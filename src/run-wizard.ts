@@ -3,7 +3,7 @@ import { render } from 'ink';
 
 import type { RunWizardOptions, WizardResult } from './types/index.js';
 import { schemaFor, withConfigDefaults } from './schema.js';
-import { Wizard } from './wizard.js';
+import { Wizard } from './wizard/index.js';
 
 // Plain .ts, not .tsx: this file has no JSX syntax of its own (createElement
 // instead), so it doesn't need the tsx parser — only wizard.tsx does.

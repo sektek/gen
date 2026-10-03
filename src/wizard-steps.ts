@@ -56,7 +56,7 @@ export function clearableCapability(spec: OptionSpec) {
  * step has no `clearable` capability of its own — an empty project name is
  * never a valid stored value, so there's nothing for `clearable`'s `value`
  * fallback to mean for it — but still supports ctrl+x, via the prefix-aware
- * handling in wizard.tsx's GeneratedTextInput rather than the generic
+ * handling in wizard/wizard.tsx's GeneratedTextInput rather than the generic
  * `clearable` capability.
  *
  * @param spec - The option spec to check.
@@ -88,7 +88,7 @@ export function projectNamePrefix(
 
 /**
  * Reintroduces a suppressed project-name prefix the moment typing resumes
- * on a cleared field (wizard.tsx's GeneratedTextInput) — mirrors the same
+ * on a cleared field (wizard/wizard.tsx's GeneratedTextInput) — mirrors the same
  * `${prefix}-${randomProjectName()}` joiner `@sektek/generator`'s own
  * `projectNamePrompt` uses, so the reintroduced text reads exactly like a
  * freshly-generated prefixed default would.
@@ -106,7 +106,7 @@ export function reintroducePrefix(prefix: string, input: string): EditResult {
  * The schema entries the wizard still needs to prompt for: any key
  * already present in `seed` is skipped, even if its value is `undefined`
  * — an optional text spec with no default records `undefined` when
- * deliberately left blank (see wizard.tsx's `advance()`), and this is
+ * deliberately left blank (see wizard/wizard.tsx's `advance()`), and this is
  * also called against the wizard's own live in-progress answers, so
  * treating "present but undefined" as still-pending would make that step
  * reopen itself forever instead of actually completing.
@@ -409,7 +409,7 @@ export function defaultIndexFor(
 
 /**
  * Validates a candidate project name for the wizard's project-name step
- * (see wizard.tsx's GeneratedTextInput): rejects anything that isn't a safe
+ * (see wizard/wizard.tsx's GeneratedTextInput): rejects anything that isn't a safe
  * single path segment, or that already exists as a directory under `cwd`.
  * Only a cheap, synchronous, local check — a GitHub repo-name collision
  * (only possible once `createRepo` is known, answered by a later step) is
@@ -518,7 +518,7 @@ export function applyTypedInput(
 
 /**
  * The keybinding hints for the wizard's persistent status bar (see
- * wizard.tsx's `StatusBar`): which keys do what for the current step, kept
+ * wizard/wizard.tsx's `StatusBar`): which keys do what for the current step, kept
  * separate from any inline validation error (which is about the specific
  * value just typed, not the step in general). `undefined` (no step left,
  * i.e. the wizard is about to finish) shows nothing.
@@ -530,7 +530,7 @@ export function applyTypedInput(
  *   applies while true; ignored for every other spec kind.
  * @param canRegenerate - Whether ctrl+r currently regenerates — normally
  *   just `isPristine`, but the project-name step's prefix-aware clear also
- *   allows it on an empty, cleared field (see wizard.tsx's
+ *   allows it on an empty, cleared field (see wizard/wizard.tsx's
  *   GeneratedTextInput). Defaults to `isPristine`.
  * @returns The hints to show in the status bar, in display order.
  */
