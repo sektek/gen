@@ -13,6 +13,5 @@ export type { ResolveGeneratedDestinationOptions } from './resolve-generated-des
 export type { RunEnv } from './run-env.js';
 export type { RunWizardOptions } from './run-wizard-options.js';
 export type { WizardChoice } from './wizard-choice.js';
-export type { WizardProps } from './wizard-props.js';
 export type { WizardResult } from './wizard-result.js';
 export type { WorkspaceRoot } from './workspace-root.js';
