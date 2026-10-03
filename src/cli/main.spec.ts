@@ -523,17 +523,32 @@ describe('main', function () {
     let originalExitCode: typeof process.exitCode;
     const restores: Array<() => void> = [];
 
-    const fakeTty = (stream: NodeJS.ReadStream | NodeJS.WriteStream) => {
-      const descriptor = Object.getOwnPropertyDescriptor(stream, 'isTTY');
-      Object.defineProperty(stream, 'isTTY', {
-        value: true,
+    const overrideProperty = (
+      target: object,
+      property: string,
+      value: unknown,
+    ) => {
+      const descriptor = Object.getOwnPropertyDescriptor(target, property);
+      Object.defineProperty(target, property, {
+        value,
         configurable: true,
+        writable: true,
       });
       restores.push(() =>
         descriptor
-          ? Object.defineProperty(stream, 'isTTY', descriptor)
-          : delete (stream as { isTTY?: boolean }).isTTY,
+          ? Object.defineProperty(target, property, descriptor)
+          : Reflect.deleteProperty(target, property),
       );
+    };
+
+    const waitFor = async (condition: () => boolean, timeoutMs = 5000) => {
+      const deadline = Date.now() + timeoutMs;
+      while (!condition()) {
+        if (Date.now() > deadline) {
+          throw new Error('timed out waiting for the wizard to start');
+        }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
     };
 
     beforeEach(function () {
@@ -541,18 +556,9 @@ describe('main', function () {
       originalCwd = process.cwd();
       originalExitCode = process.exitCode;
       process.chdir(generatedCwd);
-      fakeTty(process.stdin);
-      fakeTty(process.stdout);
-      const stdin = process.stdin as NodeJS.ReadStream & {
-        setRawMode?: (mode: boolean) => void;
-      };
-      const hadSetRawMode = 'setRawMode' in stdin;
-      stdin.setRawMode = () => stdin;
-      restores.push(() => {
-        if (!hadSetRawMode) {
-          delete stdin.setRawMode;
-        }
-      });
+      overrideProperty(process.stdin, 'isTTY', true);
+      overrideProperty(process.stdout, 'isTTY', true);
+      overrideProperty(process.stdin, 'setRawMode', () => process.stdin);
       sinon.stub(console, 'log');
       process.on('SIGTERM', noop);
       process.on('SIGHUP', noop);
@@ -571,8 +577,9 @@ describe('main', function () {
     });
 
     const cancelWith = async (signal: NodeJS.Signals) => {
+      const listenersBefore = process.listenerCount(signal);
       const running = main(['node', 'gen', 'base:app', '--no-git-init']);
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await waitFor(() => process.listenerCount(signal) > listenersBefore);
       process.emit(signal);
       await running;
     };
