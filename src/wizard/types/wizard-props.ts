@@ -1,6 +1,6 @@
 import type { PromptContext } from '@sektek/generator';
 
-import type { OptionSpec } from './option-spec.js';
+import type { OptionSpec } from '../../types/index.js';
 
 export type WizardProps = {
   schema: OptionSpec[];

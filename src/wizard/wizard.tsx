@@ -3,9 +3,7 @@ import { type ProviderFn, getComponent } from '@sektek/utility-belt';
 import { useEffect, useRef, useState } from 'react';
 import type { PromptContext } from '@sektek/generator';
 
-import type { OptionSpec, WizardProps } from '../types/index.js';
 import {
-  choicesFor,
   clearableCapability,
   hintsFor,
   initialAnswers,
@@ -17,32 +15,11 @@ import {
 } from '../wizard-steps.js';
 import { PROJECT_NAME_KEY } from '../project-name.js';
 
+import type { CompletedStep, WizardProps } from './types/index.js';
 import { StatusBar } from './status-bar.js';
+import { displayValue } from './display-value.js';
+import { isPromiseLike } from './is-promise-like.js';
 import { renderInput } from './render-input.js';
-
-/**
- * True for a value returned from a reloadable capability's provider (or
- * generateDefaultAsync) that still needs awaiting, vs one already resolved
- * synchronously — lets a synchronous provider (e.g. the project-name
- * step's own generateName) resolve within the same tick, with no
- * "Resolving…" flash, the same as before this capability generalized the
- * old generateDefault mechanism.
- *
- * @param value - The value to check.
- * @returns Whether `value` is thenable.
- */
-function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as PromiseLike<T>).then === 'function'
-  );
-}
-
-type CompletedStep = {
-  key: string;
-  text: string;
-};
 
 // Not unit-tested: ink TTY rendering is impractical to exercise outside a
 // real terminal. The pure step-sequencing logic is unit-tested in
@@ -347,23 +324,4 @@ export function Wizard({
       )}
     </Box>
   );
-}
-
-/**
- * The human-readable form of an answered step's value, for scrollback:
- * `select`/`boolean` resolve back to their choice `label` (e.g. `true` ->
- * `"Yes"`) rather than showing the raw stored value.
- *
- * @param spec - The option spec that was just answered.
- * @param value - The value `advance()` recorded for it.
- * @returns The text to display for this answer in the `<Static>` scrollback.
- */
-function displayValue(spec: OptionSpec, value: unknown): string {
-  if (spec.kind === 'select' || spec.kind === 'boolean') {
-    const choice = choicesFor(spec).find(c => c.value === value);
-    if (choice) {
-      return choice.label;
-    }
-  }
-  return value === undefined || value === null ? '' : String(value);
 }
