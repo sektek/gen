@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { expect } from 'chai';
+import sinon from 'sinon';
 
 import {
   resetGitConfigReaderForTesting,
@@ -16,6 +17,10 @@ import {
 } from '../git-identity.js';
 
 import { main } from './index.js';
+
+// Under tsx a SIGTERM/SIGHUP with no listener of its own ends the test
+// process, so keep one for the duration of each test that emits them.
+const noop = () => {};
 
 describe('main', function () {
   // Regression coverage for the config-defaults wiring itself (SEK-42):
@@ -510,5 +515,86 @@ describe('main', function () {
         }
       });
     }
+  });
+
+  describe('cancelling the interactive wizard', function () {
+    let generatedCwd: string;
+    let originalCwd: string;
+    let originalExitCode: typeof process.exitCode;
+    const restores: Array<() => void> = [];
+
+    const overrideProperty = (
+      target: object,
+      property: string,
+      value: unknown,
+    ) => {
+      const descriptor = Object.getOwnPropertyDescriptor(target, property);
+      Object.defineProperty(target, property, {
+        value,
+        configurable: true,
+        writable: true,
+      });
+      restores.push(() =>
+        descriptor
+          ? Object.defineProperty(target, property, descriptor)
+          : Reflect.deleteProperty(target, property),
+      );
+    };
+
+    const waitFor = async (condition: () => boolean, timeoutMs = 5000) => {
+      const deadline = Date.now() + timeoutMs;
+      while (!condition()) {
+        if (Date.now() > deadline) {
+          throw new Error('timed out waiting for the wizard to start');
+        }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    };
+
+    beforeEach(function () {
+      generatedCwd = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-cancel-'));
+      originalCwd = process.cwd();
+      originalExitCode = process.exitCode;
+      process.chdir(generatedCwd);
+      overrideProperty(process.stdin, 'isTTY', true);
+      overrideProperty(process.stdout, 'isTTY', true);
+      overrideProperty(process.stdin, 'setRawMode', () => process.stdin);
+      sinon.stub(console, 'log');
+      process.on('SIGTERM', noop);
+      process.on('SIGHUP', noop);
+    });
+
+    afterEach(function () {
+      sinon.restore();
+      process.off('SIGTERM', noop);
+      process.off('SIGHUP', noop);
+      while (restores.length > 0) {
+        restores.pop()!();
+      }
+      process.exitCode = originalExitCode;
+      process.chdir(originalCwd);
+      rmSync(generatedCwd, { recursive: true, force: true });
+    });
+
+    const cancelWith = async (signal: NodeJS.Signals) => {
+      const listenersBefore = process.listenerCount(signal);
+      const running = main(['node', 'gen', 'base:app', '--no-git-init']);
+      await waitFor(() => process.listenerCount(signal) > listenersBefore);
+      process.emit(signal);
+      await running;
+    };
+
+    it('sets exit code 143 for SIGTERM and generates nothing', async function () {
+      await cancelWith('SIGTERM');
+
+      expect(process.exitCode).to.equal(143);
+      expect(readdirSync(generatedCwd)).to.deep.equal([]);
+    });
+
+    it('sets exit code 129 for SIGHUP', async function () {
+      await cancelWith('SIGHUP');
+
+      expect(process.exitCode).to.equal(129);
+    });
   });
 });

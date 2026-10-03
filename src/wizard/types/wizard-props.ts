@@ -9,6 +9,7 @@ export type WizardProps = {
     answers: Record<string, unknown>,
     answeredKeys: string[],
   ) => void;
+  onCancel?: () => void;
   // Only needed when `schema` includes a spec with `generateDefault` (the
   // project-name step the cli directory adds ahead of the namespace's own schema) —
   // the directory that name would be created under, for projectNameError()'s

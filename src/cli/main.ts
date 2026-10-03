@@ -22,7 +22,7 @@ import { isInteractive } from './is-interactive.js';
 import { loadConfigDefaults } from './load-config-defaults.js';
 import { printUsage } from './print-usage.js';
 import { promptSpecsFor } from './prompt-specs-for.js';
-import { resolveAnswers } from './resolve-answers.js';
+import { resolveAnswersUnlessCancelled } from './resolve-answers-unless-cancelled.js';
 import { runList } from './run-list.js';
 import { tryResolveNamespace } from './try-resolve-namespace.js';
 
@@ -118,7 +118,7 @@ export async function main(argv: string[]): Promise<void> {
   // project's own name.
   const optionConfigDefaults = omit(configDefaults, 'projectName');
 
-  const { answers, explicitOptionKeys } = await resolveAnswers({
+  const resolvedAnswers = await resolveAnswersUnlessCancelled({
     namespace,
     flagsGiven,
     configDefaults: optionConfigDefaults,
@@ -127,6 +127,10 @@ export async function main(argv: string[]): Promise<void> {
     promptContext,
     destCwd: newProject?.parentDir ?? dest,
   });
+  if (!resolvedAnswers) {
+    return;
+  }
+  const { answers, explicitOptionKeys } = resolvedAnswers;
 
   const merged = {
     ...answers,
