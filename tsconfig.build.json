@@ -5,6 +5,7 @@
     "test",
     "dist",
     "**/*spec.ts",
-    "src/wizard/steps/fixtures.ts"
+    "src/wizard/steps/fixtures.ts",
+    "src/registry/fixtures.ts"
   ]
 }

@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 
 import type { RegistryEntry } from '../types/index.js';
-import { registryFor } from '../registry.js';
+import { registryFor } from '../registry/index.js';
 
 import { parsePackageArg } from './parse-package-arg.js';
 import { printEntries } from './print-entries.js';

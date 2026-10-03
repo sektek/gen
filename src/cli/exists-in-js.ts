@@ -1,4 +1,4 @@
-import { registryFor } from '../registry.js';
+import { registryFor } from '../registry/index.js';
 
 /**
  * Whether `subgen` is one of `@sektek/generator-js`'s own namespaces —

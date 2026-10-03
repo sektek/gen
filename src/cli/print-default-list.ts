@@ -2,7 +2,7 @@
 
 import chalk from 'chalk';
 
-import { ROOT_PACKAGES, registryFor } from '../registry.js';
+import { ROOT_PACKAGES, registryFor } from '../registry/index.js';
 import { GeneratorPackageNotFoundError } from '../package-resolver.js';
 
 import { printEntries } from './print-entries.js';
