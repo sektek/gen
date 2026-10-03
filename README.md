@@ -29,7 +29,7 @@ gen list <scope>/<name>     # e.g. gen list @acme/widget — list one specific p
 package, not just the two defaults: an unprefixed bare name (e.g. `gen gitconfig`) defaults to
 `@sektek/base:<name>`; `name:subgen` (e.g. `gen js:gitconfig`) defaults to scope `sektek`; a
 fully-qualified `@scope/name:subgen` (e.g. `gen @acme/widget:app`) reaches any other installed
-package the same way. Runs interactively when stdout/stdin are both a TTY, or pass `--yes` to force
+package the same way. Runs interactively when stdout/stdin are both a TTY, or pass `--no-interactive` to force
 automated mode.
 
 Config-file defaults (`gen.config.{js,yaml,json}`, discovered by walking the directory tree from

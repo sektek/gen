@@ -1,5 +1,5 @@
 export type CliOptions = {
-  yes?: boolean;
+  interactive?: boolean;
   install?: boolean;
   force?: boolean;
   dest: string;
