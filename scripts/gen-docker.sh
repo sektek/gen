@@ -1,27 +1,19 @@
 #!/bin/sh
-# Run gen in Docker against the current directory.
-# Usage: gen-docker.sh [--rebuild] <gen args...>
+# Run gen in Docker against the current directory, using the local sektek/gen image.
+# Usage: gen-docker.sh <gen args...>
 set -eu
+
+image=sektek/gen
+container_home=/home/gen
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "gen-docker: docker was not found on PATH" >&2
   exit 127
 fi
 
-script_dir=$(cd "$(dirname "$0")" && pwd)
-repo_root=$(dirname "$script_dir")
-image=${GEN_DOCKER_IMAGE:-sektek/gen}
-container_home=/home/gen
-
-rebuild=0
-if [ "${1:-}" = "--rebuild" ]; then
-  rebuild=1
-  shift
-fi
-
-if [ "$rebuild" = 1 ] || ! docker image inspect "$image" >/dev/null 2>&1; then
-  echo "gen-docker: building image $image from $repo_root/Dockerfile" >&2
-  docker build -t "$image" -f "$repo_root/Dockerfile" "$repo_root" >&2
+if ! docker image inspect "$image" >/dev/null 2>&1; then
+  echo "gen-docker: image $image was not found locally" >&2
+  exit 1
 fi
 
 # Options are prepended to the positional parameters so "$@" stays verbatim.
