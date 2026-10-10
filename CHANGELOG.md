@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.20.0](https://github.com/sektek/gen/compare/v0.19.0...v0.20.0) (2026-10-10)
+
+### Features
+
+* **gen:** add a script that runs gen in Docker against the current directory ([#46](https://github.com/sektek/gen/issues/46)) ([7b4847e](https://github.com/sektek/gen/commit/7b4847e2b65cc01adcda81912ac911db25c35404))
+
 ## [0.19.0](https://github.com/sektek/gen/compare/v0.18.1...v0.19.0) (2026-10-10)
 
 ### Features
