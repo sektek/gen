@@ -2,7 +2,7 @@ import { expect } from 'chai';
 
 import { buildProgram } from './cli/build-program.js';
 import { promptSpecsFor } from './cli/prompt-specs-for.js';
-import { resolve } from './options.js';
+import { resolveAnswers } from './cli/resolve-answers.js';
 import { schemaFor } from './schema.js';
 
 // Every call into schema.ts-specific behavior goes through the helpers
@@ -34,7 +34,16 @@ async function defaultsFor(
     { kind: 'newProjectDir' },
     { answers: {}, flagsGiven: {}, configDefaults: {} },
   );
-  return resolve(namespace, {}, {}, specs);
+  const { answers } = await resolveAnswers({
+    namespace,
+    flagsGiven: {},
+    configDefaults: {},
+    interactive: false,
+    promptSpecs: specs,
+    promptContext: { configDefaults: {} },
+    destCwd: process.cwd(),
+  });
+  return answers;
 }
 
 function choicesFor(namespace: string): Record<string, readonly string[]> {
@@ -110,7 +119,9 @@ const JS_DEFAULTS = {
   repoOwner: undefined,
   githubToken: undefined,
   push: true,
-  packageScope: undefined,
+  // '' rather than undefined: the automated path's packageScopeExtraSpecs()
+  // resolves it to '' while createRepo is off.
+  packageScope: '',
   configFile: undefined,
 };
 
