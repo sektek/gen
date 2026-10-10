@@ -28,9 +28,10 @@ from a checkout of this repo (pin `@sektek/gen` with `--build-arg GEN_VERSION=<v
 docker build -t sektek/gen .
 ```
 
-`scripts/gen-docker.sh` runs that image against the current directory and passes every argument
-through to `gen`. Generated files are owned by you, not root. From the directory you want to
-generate into:
+`scripts/gen-docker.sh` runs the local `sektek/gen` image against the current directory and passes
+every argument through to `gen`. It never builds or pulls the image; if `sektek/gen` isn't present
+locally it exits with an error. Generated files are owned by you, not root. From the directory you
+want to generate into:
 
 ```sh
 /path/to/gen/scripts/gen-docker.sh list
@@ -39,10 +40,6 @@ generate into:
 
 - The wizard runs when your terminal is a TTY; with piped or redirected stdin/stdout `gen` runs in
   automated mode.
-- If the image isn't present locally the script builds it from the repo's `Dockerfile` first.
-  `scripts/gen-docker.sh --rebuild <args>` forces a rebuild (the `--rebuild` flag isn't passed to
-  `gen`).
-- `GEN_DOCKER_IMAGE` overrides the image name (default `sektek/gen`).
 - `GITHUB_TOKEN` and `GH_TOKEN`, when set on the host, are forwarded to the container by name (the
   value never appears on the command line). Use them for `--create-repo`; `gh auth token` isn't
   available inside the container.
