@@ -11,8 +11,11 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 127
 fi
 
-if ! docker image inspect "$image" >/dev/null 2>&1; then
-  echo "gen-docker: image $image was not found locally" >&2
+if ! inspect_error=$(docker image inspect "$image" 2>&1 >/dev/null); then
+  case $inspect_error in
+    *"No such image"*) echo "gen-docker: image $image was not found locally" >&2 ;;
+    *) echo "gen-docker: could not inspect image $image: $inspect_error" >&2 ;;
+  esac
   exit 1
 fi
 
