@@ -50,8 +50,12 @@ want to generate into:
 
 Only the current directory, plus `~/.gitconfig` and `~/gen.config.*`, is visible to the container.
 A `gen.config.*` in a parent directory and an npm workspace root above the current directory are not
-seen, so for example `js:lib` run from a subdirectory won't nest under the workspace's `libs/`, and
-`--dest` must point inside the current directory.
+seen, so for example `js:lib` run from a subdirectory won't nest under the workspace's `libs/`.
+
+`--dest` is resolved inside the container, where the current directory is mounted at `/work`. Give
+it a path relative to the current directory (`--dest ./my-project`). An absolute host path such as
+`--dest "$PWD/my-project"` doesn't exist in the container, so gen writes there, reports success, and
+the files are lost when the container exits.
 
 ## Usage
 
