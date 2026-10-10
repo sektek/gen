@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.19.0](https://github.com/sektek/gen/compare/v0.18.1...v0.19.0) (2026-10-10)
+
+### Features
+
+* **gen:** add a Dockerfile that builds an image running gen ([#45](https://github.com/sektek/gen/issues/45)) ([a9c2598](https://github.com/sektek/gen/commit/a9c25987df2f13a46d3c62a3cfcf15af6e1b9f0a))
+
 ## [0.18.1](https://github.com/sektek/gen/compare/v0.18.0...v0.18.1) (2026-10-03)
 
 ### Bug Fixes
