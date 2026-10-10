@@ -11,5 +11,6 @@ RUN npm install -g "@sektek/gen@${GEN_VERSION}" @sektek/generator-base @sektek/g
 RUN mkdir -p /home/gen /work && chmod 777 /home/gen /work
 ENV HOME=/home/gen
 
+USER node
 WORKDIR /work
 ENTRYPOINT ["gen"]
