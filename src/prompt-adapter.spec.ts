@@ -244,12 +244,111 @@ describe('prompt-adapter', function () {
       );
     });
 
-    it("throws for a 'select' prompt, since Prompt has no choices field to map", async function () {
+    it("throws for a 'select' prompt without choices", async function () {
       const prompts = [makePrompt({ name: 'license', type: 'select' })];
 
       await expect(promptsToOptionSpecs(prompts, CONTEXT)).to.be.rejectedWith(
-        /unsupported type 'select'/,
+        /select prompt 'license' has no choices/,
       );
+    });
+
+    it("copies a 'select' prompt's fixed choices and builds a --<kebab> <value> flag", async function () {
+      const choices = ['ts', 'js'];
+      const prompts = [
+        makePrompt({
+          name: 'testFramework',
+          type: 'select',
+          choices,
+          provider: () => 'ts',
+        }),
+      ];
+
+      const [spec] = await promptsToOptionSpecs(prompts, CONTEXT);
+
+      expect(spec.kind).to.equal('select');
+      expect(spec.flag).to.equal('--test-framework <value>');
+      expect(spec.choices).to.deep.equal(['ts', 'js']);
+      expect(spec.choices).to.not.equal(choices);
+    });
+
+    it("resolves a 'select' prompt's choices provider against the context", async function () {
+      const prompts = [
+        makePrompt({
+          name: 'language',
+          type: 'select',
+          choices: (ctx: PromptContext) =>
+            ctx.answers.typed === true ? ['ts'] : ['js'],
+        }),
+      ];
+
+      const [spec] = await promptsToOptionSpecs(prompts, {
+        answers: { typed: true },
+        flagsGiven: {},
+        configDefaults: {},
+      });
+
+      expect(spec.choices).to.deep.equal(['ts']);
+    });
+
+    it('copies required onto the spec', async function () {
+      const [required, optional] = await promptsToOptionSpecs(
+        [makePrompt({ name: 'a', required: true }), makePrompt({ name: 'b' })],
+        CONTEXT,
+      );
+
+      expect(required.required).to.equal(true);
+      expect(optional.required).to.be.undefined;
+    });
+
+    it("builds list and repeat flags for a 'list' prompt", async function () {
+      const prompts = [
+        makePrompt({
+          name: 'dependencies',
+          type: 'list',
+          label: 'Dependencies to add',
+          provider: () => [],
+        }),
+        makePrompt({
+          name: 'devDependencies',
+          type: 'list',
+          provider: () => [],
+        }),
+      ];
+
+      const [deps, devDeps] = await promptsToOptionSpecs(prompts, CONTEXT);
+
+      expect(deps.flag).to.equal('--dependencies <list>');
+      expect(deps.repeatFlag).to.equal('--dependency <pkg>');
+      expect(deps.repeatHelpText).to.equal('Dependencies to add (repeatable)');
+      expect(devDeps.flag).to.equal('--dev-dependencies <list>');
+      expect(devDeps.repeatFlag).to.equal('--dev-dependency <pkg>');
+    });
+
+    it("strips one trailing 's' for a non-'ies' list name", async function () {
+      const [spec] = await promptsToOptionSpecs(
+        [makePrompt({ name: 'tags', type: 'list', provider: () => [] })],
+        CONTEXT,
+      );
+
+      expect(spec.repeatFlag).to.equal('--tag <pkg>');
+    });
+
+    it('leaves choices and repeatFlag unset for text/boolean prompts', async function () {
+      const [text, bool] = await promptsToOptionSpecs(
+        [
+          makePrompt({ name: 'author' }),
+          makePrompt({
+            name: 'gitInit',
+            type: 'boolean',
+            provider: () => true,
+          }),
+        ],
+        CONTEXT,
+      );
+
+      expect(text.choices).to.be.undefined;
+      expect(text.repeatFlag).to.be.undefined;
+      expect(bool.choices).to.be.undefined;
     });
   });
 });
