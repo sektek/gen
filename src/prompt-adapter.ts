@@ -9,18 +9,27 @@ import { kebabCase } from 'lodash-es';
 
 import type { OptionKind, OptionSpec } from './types/index.js';
 
-// `Prompt` has no `choices` field (yet), so a 'select' kind can't actually
-// be represented — the resulting OptionSpec would have no `choices`, and
-// wizard/steps's choicesFor() throws the moment such a spec reaches the
-// wizard. 'list' specs are never prompted for interactively either way
-// (see pendingSpecs()), so neither kind is reachable/supported through
-// this adapter today; only 'text'/'boolean' (every real Prompt in this
-// workspace uses one of these two) are accepted, rather than silently
-// producing an unusable spec for the other two.
-const SUPPORTED_KINDS: readonly OptionKind[] = ['text', 'boolean'];
+// Every OptionKind is supported: 'select' needs `prompt.choices` (a fixed
+// list or a provider, resolved eagerly in promptsToOptionSpecs()), and
+// 'list' maps to a comma-delimited flag plus a singular repeatable one.
+const SUPPORTED_KINDS: readonly OptionKind[] = [
+  'text',
+  'boolean',
+  'select',
+  'list',
+];
 
 function isSupportedKind(type: string): type is OptionKind {
   return (SUPPORTED_KINDS as readonly string[]).includes(type);
+}
+
+// '...ies' -> '...y', otherwise strip one trailing 's' ('dev-dependencies'
+// -> 'dev-dependency'), matching schema.ts's '--dependency <pkg>' flags.
+function singular(kebab: string): string {
+  if (kebab.endsWith('ies')) {
+    return `${kebab.slice(0, -3)}y`;
+  }
+  return kebab.endsWith('s') ? kebab.slice(0, -1) : kebab;
 }
 
 // A boolean prompt whose resolved default is true needs the negated
@@ -30,10 +39,33 @@ function isSupportedKind(type: string): type is OptionKind {
 // any other kind) uses the plain form.
 function flagFor(prompt: Prompt, resolvedDefault: unknown): string {
   const kebab = kebabCase(prompt.name);
+  if (prompt.type === 'list') {
+    return `--${kebab} <list>`;
+  }
   if (prompt.type !== 'boolean') {
     return `--${kebab} <value>`;
   }
   return resolvedDefault === true ? `--no-${kebab}` : `--${kebab}`;
+}
+
+async function choicesFor(
+  prompt: Prompt,
+  context: PromptContext,
+): Promise<readonly string[]> {
+  const { choices } = prompt;
+  if (choices === undefined) {
+    throw new Error(
+      `promptsToOptionSpecs(): select prompt '${prompt.name}' has no choices`,
+    );
+  }
+  if (Array.isArray(choices)) {
+    return [...choices];
+  }
+  const get: ProviderFn<readonly string[], PromptContext> = getComponent(
+    choices,
+    'get',
+  );
+  return [...(await get(context))];
 }
 
 /**
@@ -82,6 +114,10 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
  * project's decision to adapt into `OptionSpec` rather than replace it
  * outright. Same-name prompts are merged first (see `mergeByName()`).
  *
+ * A `select` prompt's `choices` (a fixed list or a provider) is likewise
+ * resolved eagerly against `context` and copied to the spec; lazy/live
+ * re-evaluation is SEK-174's job.
+ *
  * Both `includePrompt` and `provider` are evaluated eagerly against
  * `context`, the same way the `cli` directory's own `packageScopeExtraSpecs()` already
  * resolves a dynamic default outside the wizard:
@@ -125,15 +161,24 @@ export async function promptsToOptionSpecs(
     );
     const value = await get(context);
 
-    specs.push({
+    const spec: OptionSpec = {
       key: prompt.name,
       flag: flagFor(prompt, value),
       prompt: prompt.label,
       hint: prompt.hint,
       kind: prompt.type,
       default: value,
+      required: prompt.required,
       capabilities: prompt.capabilities,
-    });
+    };
+    if (prompt.type === 'select') {
+      spec.choices = await choicesFor(prompt, context);
+    }
+    if (prompt.type === 'list') {
+      spec.repeatFlag = `--${singular(kebabCase(prompt.name))} <pkg>`;
+      spec.repeatHelpText = `${prompt.label} (repeatable)`;
+    }
+    specs.push(spec);
   }
 
   return specs;
