@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.21.0](https://github.com/sektek/gen/compare/v0.20.1...v0.21.0) (2026-10-11)
+
+### Features
+
+* **gen:** prompt adapter supports select, required and list prompts ([#52](https://github.com/sektek/gen/issues/52)) ([fbd732b](https://github.com/sektek/gen/commit/fbd732b282d967cccf9cf4a03eb2eb578579bc85))
+
 ## [0.20.1](https://github.com/sektek/gen/compare/v0.20.0...v0.20.1) (2026-10-11)
 
 ### Bug Fixes
