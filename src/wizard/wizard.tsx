@@ -3,6 +3,7 @@ import { type ProviderFn, getComponent } from '@sektek/utility-belt';
 import { useEffect, useRef, useState } from 'react';
 import type { PromptContext } from '@sektek/generator';
 
+import type { OptionSpec } from '../types/index.js';
 import { PROJECT_NAME_KEY } from '../project-name.js';
 
 import type { CompletedStep, WizardProps } from './types/index.js';
@@ -11,6 +12,7 @@ import {
   hintsFor,
   initialAnswers,
   mergeAnswer,
+  nextStep,
   pendingSpecs,
   projectNameError,
   projectNamePrefix,
@@ -54,6 +56,10 @@ export function Wizard({
   const [answers, setAnswers] = useState<Record<string, unknown>>(() =>
     initialAnswers(seed, schema),
   );
+  const [gate, setGate] = useState<
+    | { answers: Record<string, unknown>; spec: OptionSpec | undefined }
+    | undefined
+  >(undefined);
   const [textValue, setTextValue] = useState('');
   const [dynamicDefault, setDynamicDefault] = useState<string | undefined>(
     undefined,
@@ -90,9 +96,18 @@ export function Wizard({
   // render, since `steps` can shrink mid-flow once `license` resolves to
   // 'UNLICENSED' — "the next step" is always "the first not-yet-answered
   // spec", not a counter into a list whose length may no longer match.
-  const steps = pendingSpecs(schema, answers);
-  const spec = steps[0];
-  const done = spec === undefined;
+  const candidate = pendingSpecs(schema, answers)[0];
+  const done = candidate === undefined;
+  // A prompt-derived candidate must first be evaluated against the live
+  // answers (see nextStep()): only once `gate` is settled for these exact
+  // answers is it either shown, with its live default, or skipped.
+  const gated = candidate?.source !== undefined;
+  const settled =
+    !gated || (gate?.answers === answers && gate.spec?.key === candidate.key);
+  let spec: OptionSpec | undefined;
+  if (settled) {
+    spec = gated ? gate?.spec : candidate;
+  }
 
   // Resets textValue/dynamicDefault/pendingAsyncKey/error synchronously, in
   // render, the moment spec.key no longer matches what they were resolved
@@ -213,6 +228,26 @@ export function Wizard({
     // call on every subsequent answer.
   }, [spec?.key]);
 
+  useEffect(() => {
+    if (!candidate || !gated || settled) {
+      return;
+    }
+    let cancelled = false;
+    setPendingAsyncKey(candidate.key);
+    void (async () => {
+      const next = await nextStep(schema, answers, promptContext, seed);
+      if (cancelled) {
+        return;
+      }
+      setPendingAsyncKey(undefined);
+      setGate({ answers: next.answers, spec: next.spec });
+      setAnswers(next.answers);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [candidate?.key, answers]);
+
   // runWizard() turns off ink's exitOnCtrlC; in raw mode ctrl+c is a key
   // press rather than SIGINT, so it has to be caught here.
   useInput((input, key) => {
@@ -308,6 +343,9 @@ export function Wizard({
       <Static items={completed}>
         {item => <Text key={item.key}>{item.text}</Text>}
       </Static>
+      {candidate && !spec && pendingAsyncKey === candidate.key && (
+        <Text dimColor>{candidate.prompt}: Resolving…</Text>
+      )}
       {spec &&
         renderInput({
           spec,

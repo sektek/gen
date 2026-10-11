@@ -9,7 +9,7 @@ export { hintsFor } from './hints-for.js';
 export { initialAnswers } from './initial-answers.js';
 export { isClearable } from './is-clearable.js';
 export { mergeAnswer } from './merge-answer.js';
-export { pendingSpecs } from './pending-specs.js';
+export { type NextStep, nextStep, pendingSpecs } from './pending-specs.js';
 export { projectNameError } from './project-name-error.js';
 export { projectNamePrefix } from './project-name-prefix.js';
 export { reintroducePrefix } from './reintroduce-prefix.js';
