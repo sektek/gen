@@ -24,12 +24,14 @@ function isSupportedKind(type: string): type is OptionKind {
 }
 
 // '...ies' -> '...y', otherwise strip one trailing 's' ('dev-dependencies'
-// -> 'dev-dependency'), matching schema.ts's '--dependency <pkg>' flags.
+// -> 'dev-dependency'), matching schema.ts's '--dependency <pkg>' flags. A
+// name with no trailing 's' gets '-item' so the repeat flag can't collide
+// with the comma-delimited one.
 function singular(kebab: string): string {
   if (kebab.endsWith('ies')) {
     return `${kebab.slice(0, -3)}y`;
   }
-  return kebab.endsWith('s') ? kebab.slice(0, -1) : kebab;
+  return kebab.endsWith('s') ? kebab.slice(0, -1) : `${kebab}-item`;
 }
 
 // A boolean prompt whose resolved default is true needs the negated
@@ -115,16 +117,15 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
  * outright. Same-name prompts are merged first (see `mergeByName()`).
  *
  * A `select` prompt's `choices` (a fixed list or a provider) is likewise
- * resolved eagerly against `context` and copied to the spec; lazy/live
- * re-evaluation is SEK-174's job.
+ * resolved eagerly against `context` and copied to the spec.
  *
- * Both `includePrompt` and `provider` are evaluated eagerly against
- * `context`, the same way the `cli` directory's own `packageScopeExtraSpecs()` already
- * resolves a dynamic default outside the wizard:
+ * Every spec carries its source `Prompt` (`source`), which the wizard
+ * re-evaluates against the live answers at each step. `includePrompt` and
+ * `provider` are also evaluated eagerly against `context`, for the
+ * non-interactive path:
  * - A prompt whose `includePrompt` resolves `false` is left out of the
- *   result entirely, rather than carried forward as some live/deferred
- *   field — `OptionSpec` has no such field, and nothing downstream
- *   re-evaluates one per wizard step yet (that wiring is SEK-106's job).
+ *   result, unless `options.keepGated` is set: the wizard needs it to
+ *   re-test the predicate once earlier answers change.
  * - `provider`'s resolved value becomes the spec's plain `default`, not
  *   `generateDefaultAsync` — `resolve()` (the non-interactive path) never
  *   reads that field, only a spec's static `default` (see
@@ -132,11 +133,14 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
  *
  * @param prompts - The namespace's own assembled prompts (see `registry/`'s `promptsFor()`).
  * @param context - The answers/flags-given snapshot to evaluate `provider`/`includePrompt` against.
+ * @param options - Behavior flags.
+ * @param options.keepGated - Keep specs whose `includePrompt` is false on `context`, for the wizard to re-test.
  * @returns One `OptionSpec` per included prompt, after merging same-name entries.
  */
 export async function promptsToOptionSpecs(
   prompts: Prompt[],
   context: PromptContext,
+  options: { keepGated?: boolean } = {},
 ): Promise<OptionSpec[]> {
   const specs: OptionSpec[] = [];
 
@@ -151,7 +155,7 @@ export async function promptsToOptionSpecs(
       prompt.includePrompt,
       'test',
     );
-    if (!(await test(context))) {
+    if (!(await test(context)) && !options.keepGated) {
       continue;
     }
 
@@ -167,6 +171,7 @@ export async function promptsToOptionSpecs(
       prompt: prompt.label,
       hint: prompt.hint,
       kind: prompt.type,
+      source: prompt,
       default: value,
       required: prompt.required,
       capabilities: prompt.capabilities,

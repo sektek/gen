@@ -333,6 +333,40 @@ describe('prompt-adapter', function () {
       expect(spec.repeatFlag).to.equal('--tag <pkg>');
     });
 
+    it("keeps a list name without a trailing 's' from colliding with its comma flag", async function () {
+      const [spec] = await promptsToOptionSpecs(
+        [makePrompt({ name: 'staff', type: 'list', provider: () => [] })],
+        CONTEXT,
+      );
+
+      expect(spec.flag).to.equal('--staff <list>');
+      expect(spec.repeatFlag).to.equal('--staff-item <pkg>');
+    });
+
+    it('attaches the source prompt to every spec', async function () {
+      const prompt = makePrompt({ name: 'author' });
+
+      const [spec] = await promptsToOptionSpecs([prompt], CONTEXT);
+
+      expect(spec.source).to.equal(prompt);
+    });
+
+    it('keeps a prompt whose includePrompt is false when keepGated is set', async function () {
+      const prompts = [
+        makePrompt({ name: 'createRepo' }),
+        makePrompt({ name: 'repoOwner', includePrompt: () => false }),
+      ];
+
+      const specs = await promptsToOptionSpecs(prompts, CONTEXT, {
+        keepGated: true,
+      });
+
+      expect(specs.map(spec => spec.key)).to.deep.equal([
+        'createRepo',
+        'repoOwner',
+      ]);
+    });
+
     it('leaves choices and repeatFlag unset for text/boolean prompts', async function () {
       const [text, bool] = await promptsToOptionSpecs(
         [

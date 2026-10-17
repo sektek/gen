@@ -1,4 +1,4 @@
-import type { PromptCapability } from '@sektek/generator';
+import type { Prompt, PromptCapability } from '@sektek/generator';
 
 import type { OptionKind } from './option-kind.js';
 
@@ -32,6 +32,12 @@ export type OptionSpec = {
   kind: OptionKind;
   /** 'select' kind only: the choices to present. */
   choices?: readonly string[];
+  /**
+   * The `Prompt` this spec was built from; present for prompt-derived specs
+   * only. The wizard re-evaluates its `includePrompt` and `provider` against
+   * the live answers at each step, instead of the eager `default` above.
+   */
+  source?: Prompt;
   /** The pre-resolved default value, if any. */
   default?: unknown;
   /** Whether `resolve()` should throw if this key is still unanswered. */
