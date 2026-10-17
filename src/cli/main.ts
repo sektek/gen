@@ -6,13 +6,13 @@ import { type ProviderFn, getComponent } from '@sektek/utility-belt';
 import chalk from 'chalk';
 import { omit } from 'lodash-es';
 
+import { destinationModeFor, promptsFor } from '../registry/index.js';
 import {
   locateNewProject,
   resolveDestinationRoot,
 } from '../destination-root.js';
 import { applyGitInitImplications } from '../git-init-implications.js';
 import { applyLicenseImplications } from '../license-implications.js';
-import { destinationModeFor } from '../registry/index.js';
 import { flagsGivenFor } from '../options.js';
 import { runGenerator } from '../run.js';
 
@@ -60,13 +60,18 @@ export async function main(argv: string[]): Promise<void> {
   const { namespace, entries } = resolved;
 
   const mode = await destinationModeFor(namespace, entries);
+  const prompts = await promptsFor(namespace, entries);
   // Only the flag shape matters before parsing; defaults are re-resolved
   // below once configDefaults and the workspace are known.
-  const flagSpecs = await promptSpecsFor(mode, {
-    answers: {},
-    flagsGiven: {},
-    configDefaults: {},
-  });
+  const flagSpecs = await promptSpecsFor(
+    mode,
+    {
+      answers: {},
+      flagsGiven: {},
+      configDefaults: {},
+    },
+    { prompts },
+  );
 
   const program = buildProgram(namespace, flagSpecs);
   program.parse(argv);
@@ -111,7 +116,10 @@ export async function main(argv: string[]): Promise<void> {
     answers: flagsGiven,
     flagsGiven,
   };
-  const promptSpecs = await promptSpecsFor(mode, context);
+  const promptSpecs = await promptSpecsFor(mode, context, { prompts });
+  const wizardSpecs = interactive
+    ? await promptSpecsFor(mode, context, { prompts, keepGated: true })
+    : promptSpecs;
 
   // An inherited projectName (e.g. a workspace's own gen.config.*) is
   // only ever a prefix for projectNamePrompt's provider, never this
@@ -124,6 +132,7 @@ export async function main(argv: string[]): Promise<void> {
     configDefaults: optionConfigDefaults,
     interactive,
     promptSpecs,
+    wizardSpecs,
     promptContext,
     destCwd: newProject?.parentDir ?? dest,
   });

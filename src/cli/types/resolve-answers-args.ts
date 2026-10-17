@@ -8,6 +8,8 @@ export type ResolveAnswersArgs = {
   configDefaults: Record<string, unknown>;
   interactive: boolean;
   promptSpecs: OptionSpec[];
+  // Includes initially-gated specs for the wizard to re-test; defaults to promptSpecs.
+  wizardSpecs?: OptionSpec[];
   promptContext: Pick<PromptContext, 'configDefaults' | 'workspace'>;
   destCwd: string;
 };

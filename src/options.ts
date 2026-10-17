@@ -4,6 +4,27 @@ import type { OptionSpec } from './types/index.js';
 import { schemaFor } from './schema.js';
 
 /**
+ * A namespace's `schemaFor()` entries followed by `extraSpecs`, minus any
+ * schema entry whose `key` an extra spec also provides: a prompt-derived
+ * spec shadows the `schema.ts` option it replaces, so the flag is
+ * registered (and the key resolved) once.
+ *
+ * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
+ * @param extraSpecs - Specs layered over `schemaFor(namespace)`'s own.
+ * @returns The combined specs, schema order then extras order.
+ */
+export function specsWithShadowing(
+  namespace: string,
+  extraSpecs: OptionSpec[] = [],
+): OptionSpec[] {
+  const shadowed = new Set(extraSpecs.map(spec => spec.key));
+  return [
+    ...schemaFor(namespace).filter(spec => !shadowed.has(spec.key)),
+    ...extraSpecs,
+  ];
+}
+
+/**
  * Adds one commander `.option(...)` per entry in a namespace's schema. A
  * `kind: 'list'` spec adds two: `flag` itself (a plain comma-delimited
  * value, e.g. `--dependencies <list>`) plus `repeatFlag` as commander's
@@ -29,7 +50,7 @@ export function addSchemaOptions(
   namespace: string,
   extraSpecs: OptionSpec[] = [],
 ): Command {
-  for (const spec of [...schemaFor(namespace), ...extraSpecs]) {
+  for (const spec of specsWithShadowing(namespace, extraSpecs)) {
     if (spec.kind === 'list') {
       command.option(spec.flag, spec.helpText ?? spec.prompt);
       if (spec.repeatFlag) {
@@ -127,7 +148,7 @@ export function flagsGivenFor(
   const opts = command.opts() as Record<string, unknown>;
   const given: Record<string, unknown> = {};
 
-  for (const spec of [...schemaFor(namespace), ...extraSpecs]) {
+  for (const spec of specsWithShadowing(namespace, extraSpecs)) {
     if (spec.kind === 'list') {
       const fromFlag = listFlagValues(command, opts, spec);
       const fromRepeatFlag = repeatFlagValues(command, opts, spec);
@@ -169,7 +190,7 @@ export function resolve(
   configDefaults: Record<string, unknown> = {},
   extraSpecs: OptionSpec[] = [],
 ): Record<string, unknown> {
-  const schema = [...schemaFor(namespace), ...extraSpecs];
+  const schema = specsWithShadowing(namespace, extraSpecs);
   const defaults = Object.fromEntries(
     schema.map(spec => [spec.key, spec.default]),
   );
