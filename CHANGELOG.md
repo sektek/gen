@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.22.0](https://github.com/sektek/gen/compare/v0.21.0...v0.22.0) (2026-10-17)
+
+### Features
+
+* **gen:** specs carry their source Prompt and the wizard evaluates includePrompt/provider against live answers ([#53](https://github.com/sektek/gen/issues/53)) ([e5da0f0](https://github.com/sektek/gen/commit/e5da0f00d2e5dd85b775af2f062e230236490eb8))
+
 ## [0.21.0](https://github.com/sektek/gen/compare/v0.20.1...v0.21.0) (2026-10-11)
 
 ### Features
