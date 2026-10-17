@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.23.0](https://github.com/sektek/gen/compare/v0.22.0...v0.23.0) (2026-10-17)
+
+### Features
+
+* **gen:** flags and resolution come from the namespace's full prompts(), shadowing schema.ts ([#54](https://github.com/sektek/gen/issues/54)) ([5e1d85a](https://github.com/sektek/gen/commit/5e1d85ae15e1c0d910df8f4387b0f375d89fb412))
+
 ## [0.22.0](https://github.com/sektek/gen/compare/v0.21.0...v0.22.0) (2026-10-17)
 
 ### Features
