@@ -15,7 +15,8 @@ import { packageScopeExtraSpecs } from './package-scope-extra-specs.js';
  * @param args.flagsGiven - Option values already supplied via CLI flags.
  * @param args.configDefaults - Values resolved via `resolveConfigDefaults()`.
  * @param args.interactive - Whether to run the interactive wizard at all.
- * @param args.promptSpecs - Prompt-sourced specs schema.ts doesn't cover (see `promptSpecsFor()`).
+ * @param args.promptSpecs - Prompt-sourced specs, shadowing schema.ts (see `promptSpecsFor()`).
+ * @param args.wizardSpecs - The wizard's specs, keeping initially-gated ones; defaults to `promptSpecs`.
  * @param args.promptContext - What prompt providers see beyond the running answers.
  * @param args.destCwd - The directory a project-name answer would be created under.
  * @returns The fully-resolved answers, and which option keys were explicit.
@@ -26,6 +27,7 @@ export async function resolveAnswers({
   configDefaults,
   interactive,
   promptSpecs,
+  wizardSpecs = promptSpecs,
   promptContext,
   destCwd,
 }: ResolveAnswersArgs): Promise<ResolvedAnswers> {
@@ -44,7 +46,7 @@ export async function resolveAnswers({
   }
 
   const wizardResult = await runWizard(namespace, flagsGiven, configDefaults, {
-    leadingSpecs: promptSpecs,
+    leadingSpecs: wizardSpecs,
     destCwd,
     promptContext,
   });

@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { expect } from 'chai';
 
 import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
+import type { OptionSpec } from './types/index.js';
 
 // Nothing in the real @sektek/base:*/@sektek/js:* schema is both required
 // and default-less today (language is the closest candidate, and it
@@ -230,6 +231,62 @@ describe('options', function () {
       expect(flagsGivenFor(command, '@sektek/js:app')).to.not.have.property(
         'language',
       );
+    });
+  });
+
+  // '--profile <value>' is a real schema.ts entry; the prompt-derived spec
+  // below stands in for a generator that has since declared its own prompt.
+  describe('a prompt-derived spec shadowing a schema entry', function () {
+    const profilePrompt: OptionSpec = {
+      key: 'profile',
+      flag: '--profile <value>',
+      prompt: 'Profile (from prompt)',
+      kind: 'text',
+      default: 'from-prompt',
+    };
+
+    it('registers the flag once', function () {
+      const command = new Command();
+      addSchemaOptions(command, '@sektek/base:app', [profilePrompt]);
+
+      const flags = command.options.map(option => option.flags);
+      expect(flags.filter(flag => flag === '--profile <value>')).to.have.length(
+        1,
+      );
+      expect(
+        command.options.find(option => option.flags === '--profile <value>')
+          ?.description,
+      ).to.equal('Profile (from prompt)');
+    });
+
+    it('lets the prompt default win over the schema default', function () {
+      expect(
+        resolve('@sektek/base:app', {}, {}, [profilePrompt]).profile,
+      ).to.equal('from-prompt');
+    });
+
+    it('keeps the remaining schema entries in their order', function () {
+      const command = new Command();
+      addSchemaOptions(command, '@sektek/base:app');
+      const plain = command.options.map(option => option.flags);
+
+      const shadowed = new Command();
+      addSchemaOptions(shadowed, '@sektek/base:app', [profilePrompt]);
+
+      expect(shadowed.options.map(option => option.flags)).to.deep.equal([
+        ...plain.filter(flag => flag !== '--profile <value>'),
+        '--profile <value>',
+      ]);
+    });
+
+    it('reports a given flag once', function () {
+      const command = new Command();
+      addSchemaOptions(command, '@sektek/base:app', [profilePrompt]);
+      command.parse(['node', 'gen', '--profile', 'ci']);
+
+      expect(
+        flagsGivenFor(command, '@sektek/base:app', [profilePrompt]),
+      ).to.deep.equal({ profile: 'ci' });
     });
   });
 });

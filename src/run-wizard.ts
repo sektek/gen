@@ -35,6 +35,7 @@ export function runWizard(
     promptContext,
     renderApp = render,
   } = options;
+  const shadowed = new Set(leadingSpecs.map(spec => spec.key));
   return new Promise((resolve, reject) => {
     let stopListening = () => {};
     let finished = false;
@@ -53,7 +54,10 @@ export function runWizard(
       createElement(Wizard, {
         schema: [
           ...leadingSpecs,
-          ...withConfigDefaults(schemaFor(namespace), configDefaults),
+          ...withConfigDefaults(
+            schemaFor(namespace).filter(spec => !shadowed.has(spec.key)),
+            configDefaults,
+          ),
         ],
         seed,
         destCwd,

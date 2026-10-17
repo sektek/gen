@@ -118,4 +118,27 @@ describe('runWizard', function () {
 
     expect(unmounts).to.equal(1);
   });
+
+  it('asks prompt-derived specs ahead of the schema and drops the schema entry they shadow', async function () {
+    const profile = {
+      key: 'profile',
+      flag: '--profile <value>',
+      prompt: 'Profile',
+      kind: 'text' as const,
+    };
+    const result = runWizard(
+      '@sektek/base:app',
+      {},
+      {},
+      { renderApp, leadingSpecs: [profile] },
+    );
+
+    const keys = props.schema.map(spec => spec.key);
+    expect(keys[0]).to.equal('profile');
+    expect(keys.filter(key => key === 'profile')).to.have.length(1);
+    expect(keys).to.include('gitInit');
+
+    props.onCancel!();
+    await rejection(result);
+  });
 });
