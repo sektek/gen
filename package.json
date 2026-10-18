@@ -41,8 +41,8 @@
     "yeoman-environment": "^4.4.3"
   },
   "peerDependencies": {
-    "@sektek/generator-base": "^0.17.0",
-    "@sektek/generator-js": "^0.17.0"
+    "@sektek/generator-base": "^0.18.2",
+    "@sektek/generator-js": "^0.17.2"
   },
   "peerDependenciesMeta": {
     "@sektek/generator-base": {
@@ -55,8 +55,8 @@
   "devDependencies": {
     "@release-it/conventional-changelog": "^10.0.6",
     "@sektek/eslint-plugin": "^3",
-    "@sektek/generator-base": "^0.17.0",
-    "@sektek/generator-js": "^0.17.0",
+    "@sektek/generator-base": "^0.18.2",
+    "@sektek/generator-js": "^0.17.2",
     "@sektek/prettier-config": "^2",
     "@types/chai": "^5.2.3",
     "@types/chai-as-promised": "^8.0.2",

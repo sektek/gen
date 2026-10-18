@@ -69,7 +69,7 @@ describe('wizard-steps', function () {
       expect(asked).to.deep.equal(['gitInit', 'createRepo']);
       expect(answers).to.include({
         createRepo: false,
-        repoVisibility: 'public',
+        repoVisibility: 'private',
         push: true,
       });
     });
