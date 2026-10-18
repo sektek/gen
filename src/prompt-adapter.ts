@@ -130,6 +130,14 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
  *   `generateDefaultAsync` — `resolve()` (the non-interactive path) never
  *   reads that field, only a spec's static `default`.
  *
+ * Prompts are evaluated in the order given, and order matters: each one's
+ * `includePrompt`/`provider`/`choices` see `context.answers` layered with
+ * the defaults resolved for the earlier *included* prompts, so a provider
+ * can read an earlier prompt's default but never a later one's. A value
+ * already in `context.answers` (a flag or config value) always wins over
+ * the default. A prompt skipped by `includePrompt` contributes nothing, and
+ * neither does a gated one kept by `keepGated`.
+ *
  * @param prompts - The namespace's own assembled prompts (see `registry/`'s `promptsFor()`).
  * @param context - The answers/flags-given snapshot to evaluate `provider`/`includePrompt` against.
  * @param options - Behavior flags.
@@ -142,6 +150,7 @@ export async function promptsToOptionSpecs(
   options: { keepGated?: boolean } = {},
 ): Promise<OptionSpec[]> {
   const specs: OptionSpec[] = [];
+  const answers = { ...context.answers };
 
   for (const prompt of mergeByName(prompts)) {
     if (!isSupportedKind(prompt.type)) {
@@ -150,11 +159,13 @@ export async function promptsToOptionSpecs(
       );
     }
 
+    const live: PromptContext = { ...context, answers: { ...answers } };
     const test: PredicateFn<PromptContext> = getComponent(
       prompt.includePrompt,
       'test',
     );
-    if (!(await test(context)) && !options.keepGated) {
+    const included = await test(live);
+    if (!included && !options.keepGated) {
       continue;
     }
 
@@ -162,7 +173,14 @@ export async function promptsToOptionSpecs(
       prompt.provider,
       'get',
     );
-    const value = await get(context);
+    const value = await get(live);
+    if (
+      included &&
+      value !== undefined &&
+      !Object.hasOwn(answers, prompt.name)
+    ) {
+      answers[prompt.name] = value;
+    }
 
     const spec: OptionSpec = {
       key: prompt.name,
@@ -176,7 +194,7 @@ export async function promptsToOptionSpecs(
       capabilities: prompt.capabilities,
     };
     if (prompt.type === 'select') {
-      spec.choices = await choicesFor(prompt, context);
+      spec.choices = await choicesFor(prompt, live);
     }
     if (prompt.type === 'list') {
       spec.repeatFlag = `--${singular(kebabCase(prompt.name))} <pkg>`;

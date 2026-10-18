@@ -384,5 +384,90 @@ describe('prompt-adapter', function () {
       expect(text.repeatFlag).to.be.undefined;
       expect(bool.choices).to.be.undefined;
     });
+
+    describe('ordered defaults', function () {
+      const license: Prompt = {
+        name: 'license',
+        type: 'text',
+        label: 'License',
+        provider: () => 'UNLICENSED',
+        includePrompt: () => true,
+        capabilities: [],
+      };
+      const visibility: Prompt = {
+        name: 'repoVisibility',
+        type: 'text',
+        label: 'Visibility',
+        provider: (ctx: PromptContext) =>
+          ctx.answers.license === 'UNLICENSED' ? 'private' : 'public',
+        includePrompt: () => true,
+        capabilities: [],
+      };
+      const defaultOf = (specs: { key: string; default?: unknown }[]) =>
+        specs.find(spec => spec.key === 'repoVisibility')?.default;
+      const run = (prompts: Prompt[], answers: Record<string, unknown> = {}) =>
+        promptsToOptionSpecs(prompts, { ...CONTEXT, answers });
+
+      it('feeds an earlier default to a later provider', async function () {
+        expect(defaultOf(await run([license, visibility]))).to.equal('private');
+      });
+
+      it('lets a flag or config value beat the earlier default', async function () {
+        expect(
+          defaultOf(await run([license, visibility], { license: 'MIT' })),
+        ).to.equal('public');
+      });
+
+      it('does not show a provider a later prompt', async function () {
+        expect(defaultOf(await run([visibility, license]))).to.equal('public');
+      });
+
+      it('feeds nothing forward from a skipped prompt', async function () {
+        const skipped = makePrompt({
+          name: 'license',
+          provider: () => 'UNLICENSED',
+          includePrompt: () => false,
+        });
+
+        expect(defaultOf(await run([skipped, visibility]))).to.equal('public');
+      });
+
+      it('feeds nothing forward from a gated prompt kept by keepGated', async function () {
+        const gated = makePrompt({
+          name: 'license',
+          provider: () => 'UNLICENSED',
+          includePrompt: () => false,
+        });
+
+        const specs = await promptsToOptionSpecs([gated, visibility], CONTEXT, {
+          keepGated: true,
+        });
+
+        expect(specs.map(spec => spec.key)).to.deep.equal([
+          'license',
+          'repoVisibility',
+        ]);
+        expect(defaultOf(specs)).to.equal('public');
+      });
+
+      it('leaves unrelated prompts unchanged and in order', async function () {
+        const specs = await run([
+          makePrompt({ name: 'a' }),
+          makePrompt({ name: 'b' }),
+        ]);
+
+        expect(specs.map(spec => [spec.key, spec.default])).to.deep.equal([
+          ['a', 'a-value'],
+          ['b', 'b-value'],
+        ]);
+      });
+
+      it('does not mutate the caller context answers', async function () {
+        const answers = {};
+        await run([license, visibility], answers);
+
+        expect(answers).to.deep.equal({});
+      });
+    });
   });
 });
