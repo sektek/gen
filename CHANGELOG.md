@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.23.3](https://github.com/sektek/gen/compare/v0.23.2...v0.23.3) (2026-10-18)
+
+### Bug Fixes
+
+* **gen:** bump generator-base and generator-js to the releases where workspace composes its prompts ([#60](https://github.com/sektek/gen/issues/60)) ([6f9dfb8](https://github.com/sektek/gen/commit/6f9dfb8305acaf8e183d36cb9e9308c0a8ecc396))
+
 ## [0.23.2](https://github.com/sektek/gen/compare/v0.23.1...v0.23.2) (2026-10-18)
 
 ### Bug Fixes
