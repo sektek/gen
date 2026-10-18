@@ -10,7 +10,6 @@ import type { CompletedStep, WizardProps } from './types/index.js';
 import {
   clearableCapability,
   hintsFor,
-  initialAnswers,
   mergeAnswer,
   nextStep,
   pendingSpecs,
@@ -36,8 +35,7 @@ import { renderInput } from './render-input.js';
  * @param props.seed - Option values already supplied (e.g. via CLI flags).
  * @param props.onComplete - Called once with the fully-resolved answers,
  *   plus the keys actually prompted for and answered live (excluding any
- *   from `seed` or merely implied by an implied-answers rule, e.g.
- *   `licenseImpliedAnswers`/`gitInitImpliedAnswers`/`createRepoImpliedAnswers`).
+ *   from `seed`, or skipped by a prompt's `includePrompt`).
  * @param props.onCancel - Called when the user presses ctrl+c.
  * @param props.destCwd - The directory the project-name step's answer would be created under.
  * @param props.promptContext - The `configDefaults`/`workspace` half of the
@@ -53,9 +51,9 @@ export function Wizard({
   destCwd,
   promptContext = { configDefaults: {} },
 }: WizardProps) {
-  const [answers, setAnswers] = useState<Record<string, unknown>>(() =>
-    initialAnswers(seed, schema),
-  );
+  const [answers, setAnswers] = useState<Record<string, unknown>>(() => ({
+    ...seed,
+  }));
   const [gate, setGate] = useState<
     | { answers: Record<string, unknown>; spec: OptionSpec | undefined }
     | undefined
@@ -260,7 +258,7 @@ export function Wizard({
     if (!spec) {
       return;
     }
-    setAnswers(prev => mergeAnswer(prev, spec.key, value, schema));
+    setAnswers(prev => mergeAnswer(prev, spec.key, value));
     setCompleted(prev => [
       ...prev,
       { key: spec.key, text: `${spec.prompt}: ${displayValue(spec, value)}` },

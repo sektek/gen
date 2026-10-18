@@ -47,9 +47,8 @@ export type NextStep = {
 /**
  * The first pending step, evaluating a prompt-derived spec's `includePrompt`
  * and `provider` against the live answers. A spec whose `includePrompt`
- * fails is skipped: its live default is recorded in the answers (as
- * `impliedDefaultsFor` does for the hardcoded rules) so the final answers
- * stay complete. A spec without a `source` is returned as-is.
+ * fails is skipped: its live default is recorded in the answers so the
+ * final answers stay complete. A spec without a `source` is returned as-is.
  *
  * @param schema - The full option schema for a namespace.
  * @param answers - The wizard's answers so far.
@@ -88,6 +87,6 @@ export async function nextStep(
     if (await test(context)) {
       return { spec: { ...spec, default: value }, answers: current };
     }
-    current = mergeAnswer(current, spec.key, value, schema);
+    current = mergeAnswer(current, spec.key, value);
   }
 }
