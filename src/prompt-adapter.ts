@@ -128,8 +128,7 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
  *   re-test the predicate once earlier answers change.
  * - `provider`'s resolved value becomes the spec's plain `default`, not
  *   `generateDefaultAsync` — `resolve()` (the non-interactive path) never
- *   reads that field, only a spec's static `default` (see
- *   `packageScopeExtraSpecs()`'s own comment on the same tradeoff).
+ *   reads that field, only a spec's static `default`.
  *
  * @param prompts - The namespace's own assembled prompts (see `registry/`'s `promptsFor()`).
  * @param context - The answers/flags-given snapshot to evaluate `provider`/`includePrompt` against.

@@ -204,8 +204,7 @@ describe('project-name', function () {
       expect(dest).to.equal(join(cwd, 'baz-qux'));
     });
 
-    // As with package-scope.spec.ts, a genuine "package not found anywhere"
-    // case isn't tested here — see package-resolver.spec.ts for
-    // GeneratorPackageNotFoundError coverage.
+    // A genuine "package not found anywhere" case isn't tested here — see
+    // package-resolver.spec.ts for GeneratorPackageNotFoundError coverage.
   });
 });
