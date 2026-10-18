@@ -1,5 +1,4 @@
 export type { DestinationRootArgs } from './destination-root-args.js';
-export type { GitConfigReader } from './git-config-reader.js';
 export type { GitInitImplicationsResult } from './git-init-implications-result.js';
 export type { LicenseImplicationsResult } from './license-implications-result.js';
 export type { NewProjectLocation } from './new-project-location.js';

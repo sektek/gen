@@ -11,17 +11,20 @@ import { tmpdir } from 'node:os';
 import { expect } from 'chai';
 import sinon from 'sinon';
 
-import {
-  resetGitConfigReaderForTesting,
-  setGitConfigReaderForTesting,
-} from '../git-identity.js';
-
 import { main } from './index.js';
 import { overrideProperty } from './override-property.js';
 
 // Under tsx a SIGTERM/SIGHUP with no listener of its own ends the test
 // process, so keep one for the duration of each test that emits them.
 const noop = () => {};
+
+const restoreEnv = (key: string, value: string | undefined) => {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+};
 
 describe('main', function () {
   // Regression coverage for the config-defaults wiring itself (SEK-42):
@@ -175,19 +178,33 @@ describe('main', function () {
 
   describe('git-derived author, automated mode', function () {
     let destinationRoot: string;
+    let configDir: string;
+    let originalCwd: string;
+    let originalGlobal: string | undefined;
+    let originalNoSystem: string | undefined;
 
     beforeEach(function () {
       destinationRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-author-'));
-      const gitConfig: Record<string, string> = {
-        'user.name': 'Ada Lovelace',
-        'user.email': 'ada@example.com',
-      };
-      setGitConfigReaderForTesting(async key => gitConfig[key]);
+      configDir = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-gitcfg-'));
+      originalCwd = process.cwd();
+      originalGlobal = process.env.GIT_CONFIG_GLOBAL;
+      originalNoSystem = process.env.GIT_CONFIG_NOSYSTEM;
+
+      const gitConfigPath = join(configDir, 'gitconfig');
+      writeFileSync(
+        gitConfigPath,
+        '[user]\n\tname = Ada Lovelace\n\temail = ada@example.com\n',
+      );
+      process.env.GIT_CONFIG_GLOBAL = gitConfigPath;
+      process.env.GIT_CONFIG_NOSYSTEM = '1';
     });
 
     afterEach(function () {
-      resetGitConfigReaderForTesting();
+      process.chdir(originalCwd);
+      restoreEnv('GIT_CONFIG_GLOBAL', originalGlobal);
+      restoreEnv('GIT_CONFIG_NOSYSTEM', originalNoSystem);
       rmSync(destinationRoot, { recursive: true, force: true });
+      rmSync(configDir, { recursive: true, force: true });
     });
 
     const run = (...extraArgs: string[]) =>
@@ -221,6 +238,21 @@ describe('main', function () {
       expect(packageJson.author).to.equal(
         'Explicit Author <explicit@example.com>',
       );
+    });
+
+    it('lets a gen.config.* author win over the git-derived default', async function () {
+      writeFileSync(
+        join(configDir, 'gen.config.json'),
+        JSON.stringify({ author: 'Config Author <config@example.com>' }),
+      );
+      process.chdir(configDir);
+
+      await run();
+
+      const packageJson = JSON.parse(
+        readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
+      );
+      expect(packageJson.author).to.equal('Config Author <config@example.com>');
     });
   });
 
