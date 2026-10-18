@@ -113,7 +113,7 @@ export async function main(argv: string[]): Promise<void> {
   };
   const context: PromptContext = {
     ...promptContext,
-    answers: flagsGiven,
+    answers: { ...omit(configDefaults, 'projectName'), ...flagsGiven },
     flagsGiven,
   };
   const promptSpecs = await promptSpecsFor(mode, context, { prompts });
