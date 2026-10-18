@@ -4,7 +4,6 @@ export type { LicenseImplicationsResult } from './license-implications-result.js
 export type { NewProjectLocation } from './new-project-location.js';
 export type { OptionKind } from './option-kind.js';
 export type { OptionSpec } from './option-spec.js';
-export type { PackageScopeDefaultOptions } from './package-scope-default-options.js';
 export type { RegistryEntry } from './registry-entry.js';
 export type { ResolveGeneratedDestinationOptions } from './resolve-generated-destination-options.js';
 export type { RunEnv } from './run-env.js';

@@ -390,9 +390,8 @@ describe('main', function () {
     });
   });
 
-  // No createRepo set in either test here, so resolvePackageScopeDefault()
-  // short-circuits to '' without any network call — see
-  // package-scope.spec.ts for the GitHub-derived branches.
+  // No createRepo set in either test here, so generator-js's
+  // packageScopePrompt resolves to '' without any network call.
   describe('packageScope default, automated mode', function () {
     let destinationRoot: string;
 
@@ -439,11 +438,9 @@ describe('main', function () {
     });
   });
 
-  // Regression: packageScopeExtraSpecs() only saw flagsGiven, never
-  // configDefaults, so a repoOwner set via gen.config.* (rather than a CLI
-  // flag) never reached the packageScope derivation. repoOwner given means
-  // no network call either way (resolvePackageScopeDefault returns it
-  // directly).
+  // Regression: a repoOwner set via gen.config.* (rather than a CLI flag)
+  // must reach the packageScope derivation. repoOwner given means no
+  // network call either way (packageScopePrompt returns it directly).
   describe('packageScope default derived from a config-file repoOwner', function () {
     let projectDir: string;
     let destinationRoot: string;

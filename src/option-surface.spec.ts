@@ -1,7 +1,9 @@
+import { type Prompt } from '@sektek/generator';
 import { expect } from 'chai';
 
 import { buildProgram } from './cli/build-program.js';
 import { promptSpecsFor } from './cli/prompt-specs-for.js';
+import { promptsFor } from './registry/index.js';
 import { resolveAnswers } from './cli/resolve-answers.js';
 import { schemaFor } from './schema.js';
 
@@ -10,17 +12,27 @@ import { schemaFor } from './schema.js';
 // them.
 
 const NAMESPACES = [
-  { namespace: '@sektek/js:app', isJs: true },
-  { namespace: '@sektek/js:lib', isJs: true },
-  { namespace: '@sektek/js:workspace', isJs: true },
-  { namespace: '@sektek/base:app', isJs: false },
-  { namespace: '@sektek/base:workspace', isJs: false },
+  { namespace: '@sektek/js:app', isJs: true, hasScope: true },
+  { namespace: '@sektek/js:lib', isJs: true, hasScope: true },
+  // Never composes base-package, so no packageScope prompt.
+  { namespace: '@sektek/js:workspace', isJs: true, hasScope: false },
+  { namespace: '@sektek/base:app', isJs: false, hasScope: false },
+  { namespace: '@sektek/base:workspace', isJs: false, hasScope: false },
 ];
+
+// Only the prompts whose schema.ts entry is already retired: the rest still
+// come from schema.ts here, so the pinned flag order stays as it was.
+async function retiredPrompts(namespace: string): Promise<Prompt[]> {
+  return (await promptsFor(namespace)).filter(
+    prompt => prompt.name === 'packageScope',
+  );
+}
 
 async function flagsFor(namespace: string): Promise<string[]> {
   const specs = await promptSpecsFor(
     { kind: 'newProjectDir' },
     { answers: {}, flagsGiven: {}, configDefaults: {} },
+    { prompts: await retiredPrompts(namespace) },
   );
   return buildProgram(namespace, specs)
     .options.map(option => option.flags)
@@ -33,6 +45,7 @@ async function defaultsFor(
   const specs = await promptSpecsFor(
     { kind: 'newProjectDir' },
     { answers: {}, flagsGiven: {}, configDefaults: {} },
+    { prompts: await retiredPrompts(namespace) },
   );
   const { answers } = await resolveAnswers({
     namespace,
@@ -87,9 +100,10 @@ const JS_FLAGS = [
   '--repo-owner <value>',
   '--github-token <value>',
   '--no-push',
-  '--package-scope <value>',
   '--config-file <path>',
 ];
+
+const SCOPE_FLAG = '--package-scope <value>';
 
 const BASE_DEFAULTS = {
   profile: 'default',
@@ -119,11 +133,12 @@ const JS_DEFAULTS = {
   repoOwner: undefined,
   githubToken: undefined,
   push: true,
-  // '' rather than undefined: the automated path's packageScopeExtraSpecs()
-  // resolves it to '' while createRepo is off.
-  packageScope: '',
   configFile: undefined,
 };
+
+// '' rather than undefined: the prompt-derived packageScope spec resolves
+// it to '' while createRepo is off.
+const SCOPE_DEFAULTS = { packageScope: '' };
 
 const JS_CHOICES = {
   language: ['javascript', 'typescript'],
@@ -134,11 +149,14 @@ const JS_CHOICES = {
 const BASE_CHOICES = { repoVisibility: ['public', 'private'] };
 
 describe('option surface', function () {
-  for (const { namespace, isJs } of NAMESPACES) {
+  for (const { namespace, isJs, hasScope } of NAMESPACES) {
     describe(namespace, function () {
+      // Prompt-derived flags register after the schema ones, so compare
+      // order-independently.
       it('registers the expected flags', async function () {
-        expect(await flagsFor(namespace)).to.deep.equal([
+        expect(await flagsFor(namespace)).to.have.members([
           ...(isJs ? JS_FLAGS : BASE_FLAGS),
+          ...(hasScope ? [SCOPE_FLAG] : []),
           '--project-name <value>',
         ]);
       });
@@ -148,7 +166,10 @@ describe('option surface', function () {
 
         // A random suggestion, so only its shape is pinned.
         expect(projectName).to.be.a('string').that.is.not.empty;
-        expect(defaults).to.deep.equal(isJs ? JS_DEFAULTS : BASE_DEFAULTS);
+        expect(defaults).to.deep.equal({
+          ...(isJs ? JS_DEFAULTS : BASE_DEFAULTS),
+          ...(hasScope ? SCOPE_DEFAULTS : {}),
+        });
       });
 
       it('offers the expected select choices', function () {

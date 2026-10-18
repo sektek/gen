@@ -1,7 +1,4 @@
-import { clearable } from '@sektek/generator';
-
 import type { OptionSpec } from './types/index.js';
-import { resolvePackageScopeDefault } from './package-scope.js';
 
 // Options every generator understands, since CoreGenerator applies these
 // as workspace-wide defaults regardless of which sub-generator runs.
@@ -150,29 +147,6 @@ export const GITHUB_OPTIONS: OptionSpec[] = [
   },
 ];
 
-// The npm-scope option for the @sektek/js:* generator family — its own
-// array, positioned in schemaFor() *after* GITHUB_OPTIONS rather than
-// grouped into JS_OPTIONS, since its default depends on those answers.
-export const PACKAGE_SCOPE_OPTIONS: OptionSpec[] = [
-  {
-    key: 'packageScope',
-    flag: '--package-scope <value>',
-    prompt: 'npm scope',
-    kind: 'text',
-    capabilities: [clearable],
-    generateDefaultAsync: answers =>
-      resolvePackageScopeDefault({
-        createRepo: answers.createRepo === true,
-        repoOwner:
-          typeof answers.repoOwner === 'string' ? answers.repoOwner : undefined,
-        githubToken:
-          typeof answers.githubToken === 'string'
-            ? answers.githubToken
-            : undefined,
-      }),
-  },
-];
-
 // Options for the `config` sub-generator. Reachable from both
 // @sektek/base:app and (transitively) @sektek/js:app, so merged into both
 // schemaFor() branches below.
@@ -203,7 +177,6 @@ export function schemaFor(namespace: string): OptionSpec[] {
         ...DEPENDENCY_OPTIONS,
         ...GIT_OPTIONS,
         ...GITHUB_OPTIONS,
-        ...PACKAGE_SCOPE_OPTIONS,
         ...CONFIG_OPTIONS,
       ]
     : [...CORE_OPTIONS, ...GIT_OPTIONS, ...GITHUB_OPTIONS, ...CONFIG_OPTIONS];

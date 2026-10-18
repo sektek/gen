@@ -3,7 +3,6 @@ import { resolve } from '../options.js';
 import { runWizard } from '../run-wizard.js';
 
 import type { ResolveAnswersArgs, ResolvedAnswers } from './types/index.js';
-import { packageScopeExtraSpecs } from './package-scope-extra-specs.js';
 
 /**
  * Resolves this run's answers: the interactive wizard (seeded with
@@ -33,14 +32,7 @@ export async function resolveAnswers({
 }: ResolveAnswersArgs): Promise<ResolvedAnswers> {
   if (!interactive) {
     return {
-      answers: resolve(namespace, flagsGiven, configDefaults, [
-        ...(await packageScopeExtraSpecs(
-          namespace,
-          flagsGiven,
-          configDefaults,
-        )),
-        ...promptSpecs,
-      ]),
+      answers: resolve(namespace, flagsGiven, configDefaults, promptSpecs),
       explicitOptionKeys: Object.keys(flagsGiven),
     };
   }
