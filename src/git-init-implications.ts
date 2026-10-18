@@ -6,16 +6,14 @@ import type { GitInitImplicationsResult } from './types/index.js';
  * git repo — declining `gitInit` makes that invariant, not just the
  * default.
  *
- * This is the safety net for the case `wizard/steps`'s
- * `gitInitImpliedAnswers` can't close on its own: an explicit conflicting
- * seed (e.g. `--create-repo` alongside `--no-git-init`) wins over the
- * wizard's own implied skip by design (see `initialAnswers`'s "seed always
- * wins" rule, needed elsewhere so a real conflict stays visible rather than
- * silently absorbed) — so the conflict has to be caught here instead, once,
- * on the final resolved answers, the same way `applyLicenseImplications`
- * already catches the analogous `license`/`private` conflict. A no-op —
- * returns `resolved` unchanged — when `gitInit` isn't `false`, or for a
- * run where `createRepo` isn't present in `resolved` at all.
+ * This is the safety net for what the `createRepo` prompt's `includePrompt`
+ * can't close on its own: an explicit conflicting seed (e.g. `--create-repo`
+ * alongside `--no-git-init`) wins over the wizard's own skip, and a
+ * non-interactive run never evaluates the prompt gating. The conflict is
+ * caught here, once, on the final resolved answers, the same way
+ * `applyLicenseImplications` catches the analogous `license`/`private`
+ * conflict. A no-op — returns `resolved` unchanged — when `gitInit` isn't
+ * `false`, or for a run where `createRepo` isn't present in `resolved` at all.
  *
  * @param resolved - The fully-merged options object (post CLI/wizard resolution).
  * @returns The (possibly-adjusted) options object, plus any warning raised.

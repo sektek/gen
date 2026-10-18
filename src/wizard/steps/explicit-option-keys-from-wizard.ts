@@ -1,8 +1,7 @@
 /**
  * Which option keys count as "explicit" for a completed interactive run:
  * a real CLI flag given up front, or a spec actually prompted for and
- * answered live — never a key only present because `licenseImpliedAnswers`
- * injected it alongside a real answer.
+ * answered live — never a key only present because a gated step was skipped.
  *
  * @param flagsGiven - Option values already supplied via CLI flags.
  * @param answeredKeys - Keys `Wizard` actually prompted for and answered.

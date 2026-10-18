@@ -6,7 +6,6 @@ export { clearableCapability } from './clearable-capability.js';
 export { defaultIndexFor } from './default-index-for.js';
 export { explicitOptionKeysFromWizard } from './explicit-option-keys-from-wizard.js';
 export { hintsFor } from './hints-for.js';
-export { initialAnswers } from './initial-answers.js';
 export { isClearable } from './is-clearable.js';
 export { mergeAnswer } from './merge-answer.js';
 export { type NextStep, nextStep, pendingSpecs } from './pending-specs.js';
