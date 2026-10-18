@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.23.2](https://github.com/sektek/gen/compare/v0.23.1...v0.23.2) (2026-10-18)
+
+### Bug Fixes
+
+* **gen:** non-interactive defaults resolve in prompts() order, each seeing the earlier defaults ([#59](https://github.com/sektek/gen/issues/59)) ([b4bd962](https://github.com/sektek/gen/commit/b4bd962a17733fe654510fa5a72f027ade1c52f0))
+
 ## [0.23.1](https://github.com/sektek/gen/compare/v0.23.0...v0.23.1) (2026-10-18)
 
 ### Bug Fixes
