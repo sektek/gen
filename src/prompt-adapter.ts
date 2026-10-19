@@ -24,7 +24,7 @@ function isSupportedKind(type: string): type is OptionKind {
 }
 
 // '...ies' -> '...y', otherwise strip one trailing 's' ('dev-dependencies'
-// -> 'dev-dependency'), matching schema.ts's '--dependency <pkg>' flags. A
+// -> 'dev-dependency'), giving '--dependency <pkg>' flags. A
 // name with no trailing 's' gets '-item' so the repeat flag can't collide
 // with the comma-delimited one.
 function singular(kebab: string): string {
@@ -35,7 +35,7 @@ function singular(kebab: string): string {
 }
 
 // A boolean prompt whose resolved default is true needs the negated
-// '--no-<x>' form (matching schema.ts's own convention, e.g. GIT_OPTIONS's
+// '--no-<x>' form (matching the usual convention, e.g.
 // '--no-git-init') — Commander gives a bare positive flag no way to set
 // the value back to false. Every other case (a false-default boolean, or
 // any other kind) uses the plain form.
@@ -112,7 +112,7 @@ export function mergeByName(prompts: Prompt[]): Prompt[] {
 
 /**
  * Translates a namespace's fully-assembled `Prompt[]` (see `registry/`'s
- * `promptsFor()`) into `schema.ts`'s `OptionSpec[]` shape, per this
+ * `promptsFor()`) into the `OptionSpec[]` shape, per this
  * project's decision to adapt into `OptionSpec` rather than replace it
  * outright. Same-name prompts are merged first (see `mergeByName()`).
  *

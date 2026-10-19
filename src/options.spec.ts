@@ -4,34 +4,64 @@ import { expect } from 'chai';
 import { addSchemaOptions, flagsGivenFor, resolve } from './options.js';
 import type { OptionSpec } from './types/index.js';
 
-// Nothing in the real @sektek/base:*/@sektek/js:* schema is both required
-// and default-less today (language is the closest candidate, and it
-// resolves via a default instead of ever throwing), so the required-field
-// tests below pass a synthetic extraSpecs entry to exercise that path.
-// The namespace used throughout (@sektek/base:app) is a real one — it's
-// incidental to these tests, since resolve()'s validation only cares
-// about the resolved schema, not which namespace produced it.
+const profile: OptionSpec = {
+  key: 'profile',
+  flag: '--profile <value>',
+  prompt: 'Profile',
+  kind: 'text',
+  default: 'default',
+};
+
+const gitInit: OptionSpec = {
+  key: 'gitInit',
+  flag: '--no-git-init',
+  prompt: 'Initialize a local git repo?',
+  kind: 'boolean',
+  default: true,
+};
+
+const language: OptionSpec = {
+  key: 'language',
+  flag: '--language <value>',
+  prompt: 'Language',
+  kind: 'select',
+  choices: ['javascript', 'typescript'],
+  default: 'javascript',
+};
+
+const dependencies: OptionSpec = {
+  key: 'dependencies',
+  flag: '--dependencies <list>',
+  repeatFlag: '--dependency <pkg>',
+  prompt: 'Dependencies to add',
+  repeatHelpText: 'Add a dependency; repeatable',
+  kind: 'list',
+  default: [],
+};
+
+const devDependencies: OptionSpec = {
+  key: 'devDependencies',
+  flag: '--dev-dependencies <list>',
+  repeatFlag: '--dev-dependency <pkg>',
+  prompt: 'Dev dependencies to add',
+  repeatHelpText: 'Add a dev dependency; repeatable',
+  kind: 'list',
+  default: [],
+};
+
+const BASE_SPECS = [profile, gitInit];
+const JS_SPECS = [profile, language, dependencies, devDependencies];
 
 describe('options', function () {
   describe('resolve', function () {
     it('fills in defaults when no flags are given', function () {
-      const resolved = resolve('@sektek/base:app', {});
+      const resolved = resolve(BASE_SPECS, {});
 
-      expect(resolved).to.deep.equal({
-        profile: 'default',
-        description: undefined,
-        gitInit: true,
-        createRepo: false,
-        repoVisibility: 'private',
-        repoOwner: undefined,
-        githubToken: undefined,
-        push: true,
-        configFile: undefined,
-      });
+      expect(resolved).to.deep.equal({ profile: 'default', gitInit: true });
     });
 
     it('lets a given flag override its default', function () {
-      const resolved = resolve('@sektek/base:app', { profile: 'ci' });
+      const resolved = resolve(BASE_SPECS, { profile: 'ci' });
 
       expect(resolved.profile).to.equal('ci');
       expect(resolved.gitInit).to.equal(true);
@@ -39,50 +69,49 @@ describe('options', function () {
 
     it('throws one aggregated error listing every missing required option', function () {
       expect(() =>
-        resolve('@sektek/base:app', {}, {}, [
-          {
-            key: 'apiKey',
-            flag: '--api-key <value>',
-            prompt: 'API key',
-            kind: 'text',
-            required: true,
-          },
-          {
-            key: 'apiSecret',
-            flag: '--api-secret <value>',
-            prompt: 'API secret',
-            kind: 'text',
-            required: true,
-          },
-        ]),
+        resolve(
+          [
+            {
+              key: 'apiKey',
+              flag: '--api-key <value>',
+              prompt: 'API key',
+              kind: 'text',
+              required: true,
+            },
+            {
+              key: 'apiSecret',
+              flag: '--api-secret <value>',
+              prompt: 'API secret',
+              kind: 'text',
+              required: true,
+            },
+          ],
+          {},
+        ),
       ).to.throw('Missing required option(s): apiKey, apiSecret');
     });
 
     it('throws when a select option is given a value outside its choices', function () {
-      expect(() => resolve('@sektek/js:app', { language: 'foo' })).to.throw(
+      expect(() => resolve(JS_SPECS, { language: 'foo' })).to.throw(
         'Invalid value for language: "foo" (expected one of: javascript, typescript)',
       );
     });
 
     it('accepts a select option value that is one of its choices', function () {
-      const resolved = resolve('@sektek/js:app', { language: 'typescript' });
+      const resolved = resolve(JS_SPECS, { language: 'typescript' });
 
       expect(resolved.language).to.equal('typescript');
     });
 
-    it('lets a config default override the schema default', function () {
-      const resolved = resolve(
-        '@sektek/base:app',
-        {},
-        { profile: 'from config' },
-      );
+    it('lets a config default override the spec default', function () {
+      const resolved = resolve(BASE_SPECS, {}, { profile: 'from config' });
 
       expect(resolved.profile).to.equal('from config');
     });
 
     it('lets a given flag override a config default', function () {
       const resolved = resolve(
-        '@sektek/base:app',
+        BASE_SPECS,
         { profile: 'from flag' },
         { profile: 'from config' },
       );
@@ -90,40 +119,35 @@ describe('options', function () {
       expect(resolved.profile).to.equal('from flag');
     });
 
-    it('ignores a config default with no matching schema key', function () {
-      const resolved = resolve(
-        '@sektek/base:app',
-        {},
-        { notInSchema: 'whatever' },
-      );
+    it('ignores a config default with no matching spec key', function () {
+      const resolved = resolve(BASE_SPECS, {}, { notInSpecs: 'whatever' });
 
-      expect(resolved).to.not.have.property('notInSchema');
+      expect(resolved).to.not.have.property('notInSpecs');
     });
 
-    it('does not let an explicitly undefined config value override the schema default', function () {
-      const resolved = resolve('@sektek/base:app', {}, { profile: undefined });
+    it('does not let an explicitly undefined config value override the spec default', function () {
+      const resolved = resolve(BASE_SPECS, {}, { profile: undefined });
 
       expect(resolved.profile).to.equal('default');
     });
 
     it('defaults dependencies/devDependencies to an empty array when nothing is given', function () {
-      const resolved = resolve('@sektek/js:app', {});
+      const resolved = resolve(JS_SPECS, {});
 
       expect(resolved.dependencies).to.deep.equal([]);
       expect(resolved.devDependencies).to.deep.equal([]);
     });
 
     it('does not trip required/select validation for a kind: "list" spec', function () {
-      // Nothing in DEPENDENCY_OPTIONS sets required/choices, but this
-      // guards against ever adding them and quietly reintroducing spurious
-      // validation for a kind resolve() isn't meant to check at all.
+      // Guards against ever adding required/choices to a list spec and
+      // quietly reintroducing validation for a kind resolve() doesn't check.
       expect(() =>
-        resolve('@sektek/js:app', { dependencies: ['lodash@4.17.21'] }),
+        resolve(JS_SPECS, { dependencies: ['lodash@4.17.21'] }),
       ).to.not.throw();
     });
 
     it('lets a given dependencies array flow straight through', function () {
-      const resolved = resolve('@sektek/js:app', {
+      const resolved = resolve(JS_SPECS, {
         dependencies: ['lodash@4.17.21'],
         devDependencies: ['mocha'],
       });
@@ -136,7 +160,7 @@ describe('options', function () {
   describe('addSchemaOptions', function () {
     const helpFor = (flag: string) => {
       const command = new Command();
-      addSchemaOptions(command, '@sektek/js:app');
+      addSchemaOptions(command, JS_SPECS);
       return command.options.find(option => option.flags.includes(flag))
         ?.description;
     };
@@ -157,7 +181,7 @@ describe('options', function () {
   describe('flagsGivenFor', function () {
     const buildCommand = (argv: string[]) => {
       const command = new Command();
-      addSchemaOptions(command, '@sektek/js:app');
+      addSchemaOptions(command, JS_SPECS);
       command.parse(['node', 'gen', ...argv]);
       return command;
     };
@@ -165,7 +189,7 @@ describe('options', function () {
     it('is absent when neither --dependencies nor --dependency is given', function () {
       const command = buildCommand([]);
 
-      expect(flagsGivenFor(command, '@sektek/js:app')).to.not.have.property(
+      expect(flagsGivenFor(command, JS_SPECS)).to.not.have.property(
         'dependencies',
       );
     });
@@ -173,9 +197,10 @@ describe('options', function () {
     it('comma-splits --dependencies into an array', function () {
       const command = buildCommand(['--dependencies', 'lodash,chalk@5.3.0']);
 
-      expect(
-        flagsGivenFor(command, '@sektek/js:app').dependencies,
-      ).to.deep.equal(['lodash', 'chalk@5.3.0']);
+      expect(flagsGivenFor(command, JS_SPECS).dependencies).to.deep.equal([
+        'lodash',
+        'chalk@5.3.0',
+      ]);
     });
 
     it('collects repeated --dependency flags into an array', function () {
@@ -186,9 +211,10 @@ describe('options', function () {
         'chalk@5.3.0',
       ]);
 
-      expect(
-        flagsGivenFor(command, '@sektek/js:app').dependencies,
-      ).to.deep.equal(['lodash', 'chalk@5.3.0']);
+      expect(flagsGivenFor(command, JS_SPECS).dependencies).to.deep.equal([
+        'lodash',
+        'chalk@5.3.0',
+      ]);
     });
 
     it('concatenates both forms when given together, without dropping either', function () {
@@ -199,9 +225,11 @@ describe('options', function () {
         'sinon',
       ]);
 
-      expect(
-        flagsGivenFor(command, '@sektek/js:app').dependencies,
-      ).to.deep.equal(['lodash', 'chalk', 'sinon']);
+      expect(flagsGivenFor(command, JS_SPECS).dependencies).to.deep.equal([
+        'lodash',
+        'chalk',
+        'sinon',
+      ]);
     });
 
     it('keeps dependencies and devDependencies independent of each other', function () {
@@ -212,7 +240,7 @@ describe('options', function () {
         'mocha',
       ]);
 
-      const given = flagsGivenFor(command, '@sektek/js:app');
+      const given = flagsGivenFor(command, JS_SPECS);
       expect(given.dependencies).to.deep.equal(['lodash']);
       expect(given.devDependencies).to.deep.equal(['mocha']);
     });
@@ -220,73 +248,13 @@ describe('options', function () {
     it('still reports non-list flags actually given, unaffected by the list handling', function () {
       const command = buildCommand(['--language', 'typescript']);
 
-      expect(flagsGivenFor(command, '@sektek/js:app').language).to.equal(
-        'typescript',
-      );
+      expect(flagsGivenFor(command, JS_SPECS).language).to.equal('typescript');
     });
 
     it('omits a non-list flag that was not given', function () {
       const command = buildCommand([]);
 
-      expect(flagsGivenFor(command, '@sektek/js:app')).to.not.have.property(
-        'language',
-      );
-    });
-  });
-
-  // '--profile <value>' is a real schema.ts entry; the prompt-derived spec
-  // below stands in for a generator that has since declared its own prompt.
-  describe('a prompt-derived spec shadowing a schema entry', function () {
-    const profilePrompt: OptionSpec = {
-      key: 'profile',
-      flag: '--profile <value>',
-      prompt: 'Profile (from prompt)',
-      kind: 'text',
-      default: 'from-prompt',
-    };
-
-    it('registers the flag once', function () {
-      const command = new Command();
-      addSchemaOptions(command, '@sektek/base:app', [profilePrompt]);
-
-      const flags = command.options.map(option => option.flags);
-      expect(flags.filter(flag => flag === '--profile <value>')).to.have.length(
-        1,
-      );
-      expect(
-        command.options.find(option => option.flags === '--profile <value>')
-          ?.description,
-      ).to.equal('Profile (from prompt)');
-    });
-
-    it('lets the prompt default win over the schema default', function () {
-      expect(
-        resolve('@sektek/base:app', {}, {}, [profilePrompt]).profile,
-      ).to.equal('from-prompt');
-    });
-
-    it('keeps the remaining schema entries in their order', function () {
-      const command = new Command();
-      addSchemaOptions(command, '@sektek/base:app');
-      const plain = command.options.map(option => option.flags);
-
-      const shadowed = new Command();
-      addSchemaOptions(shadowed, '@sektek/base:app', [profilePrompt]);
-
-      expect(shadowed.options.map(option => option.flags)).to.deep.equal([
-        ...plain.filter(flag => flag !== '--profile <value>'),
-        '--profile <value>',
-      ]);
-    });
-
-    it('reports a given flag once', function () {
-      const command = new Command();
-      addSchemaOptions(command, '@sektek/base:app', [profilePrompt]);
-      command.parse(['node', 'gen', '--profile', 'ci']);
-
-      expect(
-        flagsGivenFor(command, '@sektek/base:app', [profilePrompt]),
-      ).to.deep.equal({ profile: 'ci' });
+      expect(flagsGivenFor(command, JS_SPECS)).to.not.have.property('language');
     });
   });
 });
