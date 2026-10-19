@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.23.4](https://github.com/sektek/gen/compare/v0.23.3...v0.23.4) (2026-10-19)
+
+### Bug Fixes
+
+* **gen:** bump generator-base to the release where githubToken is derived only for createRepo ([#61](https://github.com/sektek/gen/issues/61)) ([69db6d5](https://github.com/sektek/gen/commit/69db6d5bf437ca5036035e0b3556024126de008d))
+
 ## [0.23.3](https://github.com/sektek/gen/compare/v0.23.2...v0.23.3) (2026-10-18)
 
 ### Bug Fixes
