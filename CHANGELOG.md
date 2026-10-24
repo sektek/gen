@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.23.5](https://github.com/sektek/gen/compare/v0.23.4...v0.23.5) (2026-10-24)
+
+### Bug Fixes
+
+* **gen:** stop pinning generator packages with optional peers and tight dev ranges ([#65](https://github.com/sektek/gen/issues/65)) ([c8327d1](https://github.com/sektek/gen/commit/c8327d11eb954444c3366ad32528bafaa54ccdd3))
+
 ## [0.23.4](https://github.com/sektek/gen/compare/v0.23.3...v0.23.4) (2026-10-19)
 
 ### Bug Fixes
