@@ -1,4 +1,3 @@
-/* eslint-disable sonarjs/no-skipped-tests, mocha/no-pending-tests -- known bugs are recorded as named skips */
 import { dirname, join } from 'node:path';
 import {
   existsSync,
@@ -509,20 +508,6 @@ describe('end-to-end option matrix', function () {
 
       expect(project.pkg.dependencies).to.include({ 'left-pad': '^1.3.0' });
     });
-
-    it.skip('js:workspace --dependency/--dev-dependency reach package.json (BUG: flags are accepted but ignored)', async function () {
-      const project = await scaffold(
-        'js:workspace',
-        'deps-ws',
-        '--dependency',
-        'a@^2.0.0',
-        '--dev-dependency',
-        'z@^4.0.0',
-      );
-
-      expect(project.pkg.dependencies).to.include({ a: '^2.0.0' });
-      expect(project.pkg.devDependencies).to.include({ z: '^4.0.0' });
-    });
   });
 
   describe('package.json metadata', function () {
@@ -563,7 +548,7 @@ describe('end-to-end option matrix', function () {
       expect(project.text('README.md')).to.include('A workspace');
     });
 
-    it.skip('js:workspace --license MIT writes a LICENSE file (BUG: package.json says MIT but no LICENSE is generated)', async function () {
+    it('js:workspace --license MIT writes a LICENSE file', async function () {
       const project = await scaffold(
         'js:workspace',
         'lic-ws',
@@ -608,6 +593,19 @@ describe('end-to-end option matrix', function () {
       const project = await scaffold('js:lib', 'prec-git');
 
       expect(project.pkg.author).to.equal(GIT_IDENTITY);
+    });
+
+    it('js:workspace accepts --author and defaults to the git identity', async function () {
+      const flagged = await scaffold(
+        'js:workspace',
+        'ws-flag',
+        '--author',
+        'Flag <flag@example.com>',
+      );
+      expect(flagged.pkg.author).to.equal('Flag <flag@example.com>');
+
+      const defaulted = await scaffold('js:workspace', 'ws-git');
+      expect(defaulted.pkg.author).to.equal(GIT_IDENTITY);
     });
 
     it('applies config-file license and language but lets flags override them', async function () {
@@ -682,7 +680,7 @@ describe('end-to-end option matrix', function () {
     const cases: Array<[string, string, string[]]> = [
       ['js:workspace', '--create-repo', ['--create-repo']],
       ['js:workspace', '--no-git-init', ['--no-git-init']],
-      ['js:workspace', '--author', ['--author', 'x']],
+      ['js:workspace', '--dependency', ['--dependency', 'lodash']],
       ['js:workspace', '--test-framework', ['--test-framework', 'vitest']],
       ['base:workspace', '--license', ['--license', 'MIT']],
       ['base:workspace', '--create-repo', ['--create-repo']],

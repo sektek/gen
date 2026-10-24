@@ -108,10 +108,10 @@ const JS_APP_FLAGS = [
 ];
 
 // A workspace takes only what it and its composed generators declare: no
-// git/github options, test framework or author.
+// git/github options, test framework or dependencies.
 const JS_WORKSPACE_FLAGS = [
   ...PROJECT_FLAGS,
-  ...JS_DEPENDENCY_FLAGS,
+  '--author <value>',
   '--language <value>',
   '--license <value>',
   '--no-private',
@@ -161,7 +161,7 @@ const JS_APP_DEFAULTS = {
 
 const JS_WORKSPACE_DEFAULTS = {
   ...PROJECT_DEFAULTS,
-  ...JS_DEPENDENCY_DEFAULTS,
+  author: undefined,
   language: 'javascript',
   license: 'UNLICENSED',
   private: true,
