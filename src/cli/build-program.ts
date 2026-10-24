@@ -5,10 +5,10 @@ import { addSchemaOptions } from '../options.js';
 
 /**
  * Builds the commander program for a resolved generator: the flags every
- * generator takes, plus the schema-driven ones for its namespace.
+ * generator takes, plus one per prompt-derived spec.
  *
  * @param namespace - The generator namespace being run (e.g. `@sektek/js:app`).
- * @param flagSpecs - Prompt-sourced specs schema.ts doesn't cover (see `promptSpecsFor()`).
+ * @param flagSpecs - The namespace's prompt-derived specs, gated ones included (see `promptSpecsFor()`).
  * @returns The configured, not-yet-parsed program.
  */
 export function buildProgram(
@@ -35,6 +35,6 @@ export function buildProgram(
       `\nExample:\n  $ gen ${namespace} --no-interactive --dest ./my-project\n`,
     );
 
-  addSchemaOptions(program, namespace, flagSpecs);
+  addSchemaOptions(program, flagSpecs);
   return program;
 }

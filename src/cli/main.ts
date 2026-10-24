@@ -47,7 +47,7 @@ export async function main(argv: string[]): Promise<void> {
     rawArgs[0] && !rawArgs[0].startsWith('-') ? rawArgs[0] : undefined;
 
   // --help/-h alone falls through to commander below once a generator is
-  // resolved, which shows that generator's schema-driven options instead.
+  // resolved, which shows that generator's prompt-driven options instead.
   if (!generatorArg) {
     printUsage();
     return;
@@ -62,7 +62,8 @@ export async function main(argv: string[]): Promise<void> {
   const mode = await destinationModeFor(namespace, entries);
   const prompts = await promptsFor(namespace, entries);
   // Only the flag shape matters before parsing; defaults are re-resolved
-  // below once configDefaults and the workspace are known.
+  // below once configDefaults and the workspace are known. Gated prompts
+  // keep their flag regardless of what they test against an empty context.
   const flagSpecs = await promptSpecsFor(
     mode,
     {
@@ -70,7 +71,7 @@ export async function main(argv: string[]): Promise<void> {
       flagsGiven: {},
       configDefaults: {},
     },
-    { prompts },
+    { prompts, keepGated: true },
   );
 
   const program = buildProgram(namespace, flagSpecs);
@@ -84,10 +85,10 @@ export async function main(argv: string[]): Promise<void> {
   } = program.opts<CliOptions>();
   const destGiven = program.getOptionValueSource('dest') === 'cli';
 
-  // Only what the user actually typed, schema-driven (including the
+  // Only what the user actually typed, spec-driven (including the
   // two-flags-one-key merge for `kind: 'list'` specs) — see
   // flagsGivenFor()'s own doc comment.
-  const flagsGiven = flagsGivenFor(program, namespace, flagSpecs);
+  const flagsGiven = flagsGivenFor(program, flagSpecs);
 
   // An explicit --dest already names the project directory, so the
   // project name follows it rather than being asked for — otherwise
@@ -116,10 +117,12 @@ export async function main(argv: string[]): Promise<void> {
     answers: { ...omit(configDefaults, 'projectName'), ...flagsGiven },
     flagsGiven,
   };
-  const promptSpecs = await promptSpecsFor(mode, context, { prompts });
-  const wizardSpecs = interactive
-    ? await promptSpecsFor(mode, context, { prompts, keepGated: true })
-    : promptSpecs;
+  // Gated prompts stay: the wizard re-tests them live, and a skipped one
+  // still resolves to its own default.
+  const promptSpecs = await promptSpecsFor(mode, context, {
+    prompts,
+    keepGated: true,
+  });
 
   // An inherited projectName (e.g. a workspace's own gen.config.*) is
   // only ever a prefix for projectNamePrompt's provider, never this
@@ -127,12 +130,10 @@ export async function main(argv: string[]): Promise<void> {
   const optionConfigDefaults = omit(configDefaults, 'projectName');
 
   const resolvedAnswers = await resolveAnswersUnlessCancelled({
-    namespace,
     flagsGiven,
     configDefaults: optionConfigDefaults,
     interactive,
     promptSpecs,
-    wizardSpecs,
     promptContext,
     destCwd: newProject?.parentDir ?? dest,
   });

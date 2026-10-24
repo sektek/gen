@@ -10,49 +10,44 @@ import type { ResolveAnswersArgs, ResolvedAnswers } from './types/index.js';
  * folded straight through `resolve()`.
  *
  * @param args - Everything either path needs.
- * @param args.namespace - The generator namespace being run (e.g. `@sektek/js:app`).
  * @param args.flagsGiven - Option values already supplied via CLI flags.
  * @param args.configDefaults - Values resolved via `resolveConfigDefaults()`.
  * @param args.interactive - Whether to run the interactive wizard at all.
- * @param args.promptSpecs - Prompt-sourced specs, shadowing schema.ts (see `promptSpecsFor()`).
- * @param args.wizardSpecs - The wizard's specs, keeping initially-gated ones; defaults to `promptSpecs`.
+ * @param args.promptSpecs - Prompt-derived specs, gated ones included (see `promptSpecsFor()`).
  * @param args.promptContext - What prompt providers see beyond the running answers.
  * @param args.destCwd - The directory a project-name answer would be created under.
  * @returns The fully-resolved answers, and which option keys were explicit.
  */
 export async function resolveAnswers({
-  namespace,
   flagsGiven,
   configDefaults,
   interactive,
   promptSpecs,
-  wizardSpecs = promptSpecs,
   promptContext,
   destCwd,
 }: ResolveAnswersArgs): Promise<ResolvedAnswers> {
   if (!interactive) {
     return {
-      answers: resolve(namespace, flagsGiven, configDefaults, promptSpecs),
+      answers: resolve(promptSpecs, flagsGiven, configDefaults),
       explicitOptionKeys: Object.keys(flagsGiven),
     };
   }
 
-  const wizardResult = await runWizard(namespace, flagsGiven, configDefaults, {
-    leadingSpecs: wizardSpecs,
-    destCwd,
-    promptContext,
-  });
+  const wizardResult = await runWizard(
+    promptSpecs,
+    flagsGiven,
+    configDefaults,
+    {
+      destCwd,
+      promptContext,
+    },
+  );
 
   return {
     // The wizard never prompts for a 'list' spec, so its answers alone
     // would leave dependencies/devDependencies undefined; resolve() layers
-    // in their schema/config default, same as the non-interactive path.
-    answers: resolve(
-      namespace,
-      wizardResult.answers,
-      configDefaults,
-      promptSpecs,
-    ),
+    // in their spec/config default, same as the non-interactive path.
+    answers: resolve(promptSpecs, wizardResult.answers, configDefaults),
     explicitOptionKeys: explicitOptionKeysFromWizard(
       flagsGiven,
       wizardResult.answeredKeys,

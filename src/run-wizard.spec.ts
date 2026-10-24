@@ -49,7 +49,7 @@ describe('runWizard', function () {
     return undefined;
   };
 
-  const start = () => runWizard('@sektek/base:app', {}, {}, { renderApp });
+  const start = () => runWizard([], {}, {}, { renderApp });
 
   it('turns off ink exitOnCtrlC so the wizard owns ctrl+c', async function () {
     const result = start();
@@ -119,24 +119,25 @@ describe('runWizard', function () {
     expect(unmounts).to.equal(1);
   });
 
-  it('asks prompt-derived specs ahead of the schema and drops the schema entry they shadow', async function () {
-    const profile = {
-      key: 'profile',
-      flag: '--profile <value>',
-      prompt: 'Profile',
+  it('asks the given specs in order, with config defaults layered on', async function () {
+    const spec = (key: string) => ({
+      key,
+      flag: `--${key} <value>`,
+      prompt: key,
       kind: 'text' as const,
-    };
+      default: 'plain',
+    });
     const result = runWizard(
-      '@sektek/base:app',
+      [spec('profile'), spec('license')],
       {},
-      {},
-      { renderApp, leadingSpecs: [profile] },
+      { license: 'MIT' },
+      { renderApp },
     );
 
-    const keys = props.schema.map(spec => spec.key);
-    expect(keys[0]).to.equal('profile');
-    expect(keys.filter(key => key === 'profile')).to.have.length(1);
-    expect(keys).to.include('gitInit');
+    expect(props.schema.map(s => [s.key, s.default])).to.deep.equal([
+      ['profile', 'plain'],
+      ['license', 'MIT'],
+    ]);
 
     props.onCancel!();
     await rejection(result);
