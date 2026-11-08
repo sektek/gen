@@ -1,3 +1,4 @@
+import { join, relative } from 'node:path';
 import {
   mkdirSync,
   mkdtempSync,
@@ -5,7 +6,6 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { expect } from 'chai';
@@ -63,6 +63,18 @@ describe('installedGeneratorPackages', function () {
     expect(installedGeneratorPackages(nested).map(pkg => pkg.name)).to.include(
       '@sektek/generator-fixture',
     );
+  });
+
+  it('finds packages above a relative cwd', function () {
+    writePackage(root, '@sektek/generator-fixture', '1.2.3');
+    const nested = join(root, 'a', 'b');
+    mkdirSync(nested, { recursive: true });
+
+    const names = installedGeneratorPackages(
+      relative(process.cwd(), nested),
+    ).map(pkg => pkg.name);
+
+    expect(names).to.include('@sektek/generator-fixture');
   });
 
   it('ignores @sektek/generator itself and a package without a manifest', function () {

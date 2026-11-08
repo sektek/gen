@@ -1,4 +1,4 @@
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -6,7 +6,7 @@ import {
   GeneratorPackageNotFoundError,
   resolveGeneratorPackagePath,
 } from './package-resolver.js';
-import { ROOT_PACKAGES } from './registry/index.js';
+import { ROOT_PACKAGES } from './registry/root-packages.js';
 import { packageRootFor } from './registry/package-root-for.js';
 
 type PackageVersion = { version?: string };
@@ -22,7 +22,7 @@ export interface InstalledGeneratorPackage {
 
 function scopeDirsFrom(start: string): string[] {
   const dirs: string[] = [];
-  for (let dir = start; ; dir = dirname(dir)) {
+  for (let dir = resolve(start); ; dir = dirname(dir)) {
     dirs.push(join(dir, SCOPE_DIR));
     if (basename(dir) === '@sektek') dirs.push(dir);
     if (dirname(dir) === dir) return dirs;
