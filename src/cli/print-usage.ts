@@ -8,6 +8,7 @@ export function printUsage(): void {
     [
       'Usage: gen <generator> [options]',
       '       gen list [<scope>/<name>]',
+      '       gen --version',
       '',
       "A bare '<name>' with no prefix defaults to '@sektek/base:<name>';",
       "use 'js:<name>' to reach a @sektek/js generator instead. Any other",
@@ -17,6 +18,7 @@ export function printUsage(): void {
       'Examples:',
       '  $ gen list',
       '  $ gen list @acme/widget',
+      '  $ gen --version',
       '  $ gen js:app --no-interactive --language typescript --dest ./my-project',
       '  $ gen readme',
       '  $ gen base:readme',
