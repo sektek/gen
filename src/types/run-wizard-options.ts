@@ -6,7 +6,10 @@ export type RunWizardOptions = {
   // validating a candidate name against the filesystem — see wizard/wizard.tsx's
   // `destCwd` prop.
   destCwd?: string;
-  promptContext?: Pick<PromptContext, 'configDefaults' | 'workspace'>;
+  promptContext?: Pick<
+    PromptContext,
+    'configDefaults' | 'workspace' | 'generator'
+  >;
   // Replaces ink's render(); lets tests drive the wizard without a TTY.
   renderApp?: typeof render;
 };

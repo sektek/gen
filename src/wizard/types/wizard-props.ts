@@ -15,5 +15,8 @@ export type WizardProps = {
   // the directory that name would be created under, for projectNameError()'s
   // local collision check. Unused by every other spec kind.
   destCwd?: string;
-  promptContext?: Pick<PromptContext, 'configDefaults' | 'workspace'>;
+  promptContext?: Pick<
+    PromptContext,
+    'configDefaults' | 'workspace' | 'generator'
+  >;
 };

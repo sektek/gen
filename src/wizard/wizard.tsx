@@ -38,7 +38,7 @@ import { renderInput } from './render-input.js';
  *   from `seed`, or skipped by a prompt's `includePrompt`).
  * @param props.onCancel - Called when the user presses ctrl+c.
  * @param props.destCwd - The directory the project-name step's answer would be created under.
- * @param props.promptContext - The `configDefaults`/`workspace` half of the
+ * @param props.promptContext - The `configDefaults`/`workspace`/`generator` half of the
  *   `PromptContext` a reloadable capability's provider is called with.
  * @returns The scrolled-back answers plus the current prompt, or just the
  * scrollback once every step is answered.
@@ -135,7 +135,10 @@ export function Wizard({
 
   const reloadWith = (
     reload: NonNullable<ReturnType<typeof reloadableCapability>>,
-    contextOverride?: Pick<PromptContext, 'configDefaults' | 'workspace'>,
+    contextOverride?: Pick<
+      PromptContext,
+      'configDefaults' | 'workspace' | 'generator'
+    >,
   ): unknown => {
     const get: ProviderFn<unknown, PromptContext> = getComponent(
       reload.provider,
