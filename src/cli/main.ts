@@ -24,6 +24,7 @@ import { printUsage } from './print-usage.js';
 import { promptSpecsFor } from './prompt-specs-for.js';
 import { resolveAnswersUnlessCancelled } from './resolve-answers-unless-cancelled.js';
 import { runList } from './run-list.js';
+import { runVersion } from './run-version.js';
 import { tryResolveNamespace } from './try-resolve-namespace.js';
 
 /**
@@ -34,6 +35,11 @@ import { tryResolveNamespace } from './try-resolve-namespace.js';
  */
 export async function main(argv: string[]): Promise<void> {
   const rawArgs = argv.slice(2);
+
+  if (rawArgs[0] === '--version' || rawArgs[0] === '-V') {
+    runVersion(process.cwd());
+    return;
+  }
 
   if (rawArgs[0] === 'list') {
     await runList(rawArgs[1]);
