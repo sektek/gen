@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/sektek/gen/compare/v0.23.5...v0.24.0) (2026-11-08)
+
+### Features
+
+* **gen:** add --version and -V to the gen CLI ([#68](https://github.com/sektek/gen/issues/68)) ([831e718](https://github.com/sektek/gen/commit/831e718a095682c78d5f4d5c11dbbc245e93e302))
+* **gen:** add a function that finds installed [@sektek](https://github.com/sektek) generator packages and their versions ([#67](https://github.com/sektek/gen/issues/67)) ([90314c5](https://github.com/sektek/gen/commit/90314c5ea83cab5328c82a2b6d8a3259aa9cb534))
+
 ## [0.23.5](https://github.com/sektek/gen/compare/v0.23.4...v0.23.5) (2026-10-24)
 
 ### Bug Fixes
