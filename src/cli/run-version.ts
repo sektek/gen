@@ -5,7 +5,10 @@ import { readFileSync } from 'node:fs';
 
 import chalk from 'chalk';
 
-import { installedGeneratorPackages } from '../installed-generator-packages.js';
+import {
+  type InstalledGeneratorPackage,
+  installedGeneratorPackages,
+} from '../installed-generator-packages.js';
 import { packageRootFor } from '../registry/package-root-for.js';
 
 function genVersion(cwd: string): string {
@@ -26,10 +29,16 @@ function genVersion(cwd: string): string {
  * installed is noted rather than omitted.
  *
  * @param cwd - The directory to look for installed generator packages from.
+ * @param listPackages - Finds the installed packages; overridable for tests.
  */
-export function runVersion(cwd: string): void {
+export function runVersion(
+  cwd: string,
+  listPackages: (
+    cwd: string,
+  ) => InstalledGeneratorPackage[] = installedGeneratorPackages,
+): void {
   console.log(`gen ${genVersion(cwd)}`);
-  for (const { name, version } of installedGeneratorPackages(cwd)) {
+  for (const { name, version } of listPackages(cwd)) {
     console.log(
       version === undefined
         ? chalk.dim(`${name}: not installed`)
