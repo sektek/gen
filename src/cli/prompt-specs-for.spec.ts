@@ -46,6 +46,31 @@ describe('promptSpecsFor', function () {
     ]);
   });
 
+  it('evaluates includePrompt and provider against a context carrying the generator', async function () {
+    const seen: Array<string | undefined> = [];
+    const specs = await promptSpecsFor(
+      { kind: 'inPlace' },
+      { ...context, generator: '@acme/widget:app' },
+      {
+        prompts: [
+          promptFor('a', {
+            includePrompt: ctx => {
+              seen.push(ctx.generator);
+              return true;
+            },
+            provider: ctx => {
+              seen.push(ctx.generator);
+              return ctx.generator;
+            },
+          }),
+        ],
+      },
+    );
+
+    expect(specs[0].default).to.equal('@acme/widget:app');
+    expect(seen).to.deep.equal(['@acme/widget:app', '@acme/widget:app']);
+  });
+
   it('merges a prompt repeated by name into one spec', async function () {
     const specs = await promptSpecsFor({ kind: 'inPlace' }, context, {
       prompts: [promptFor('a'), promptFor('a')],

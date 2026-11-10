@@ -7,6 +7,9 @@ export type ResolveAnswersArgs = {
   configDefaults: Record<string, unknown>;
   interactive: boolean;
   promptSpecs: OptionSpec[];
-  promptContext: Pick<PromptContext, 'configDefaults' | 'workspace'>;
+  promptContext: Pick<
+    PromptContext,
+    'configDefaults' | 'workspace' | 'generator'
+  >;
   destCwd: string;
 };

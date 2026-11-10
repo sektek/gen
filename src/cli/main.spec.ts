@@ -1,7 +1,9 @@
 import {
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -481,6 +483,93 @@ describe('main', function () {
         readFileSync(join(destinationRoot, 'package.json'), 'utf8'),
       );
       expect(packageJson.name).to.match(/^@acme\//);
+    });
+  });
+
+  describe('PromptContext.generator, automated mode', function () {
+    let fixtureRoot: string;
+    let destinationRoot: string;
+    let originalCwd: string;
+
+    beforeEach(function () {
+      fixtureRoot = realpathSync(
+        mkdtempSync(join(tmpdir(), 'sektek-gen-cli-widget-')),
+      );
+      destinationRoot = mkdtempSync(join(tmpdir(), 'sektek-gen-cli-dest-'));
+      originalCwd = process.cwd();
+
+      const pkgDir = join(
+        fixtureRoot,
+        'node_modules',
+        '@acme',
+        'generator-widget',
+      );
+      mkdirSync(join(pkgDir, 'generators', 'app'), { recursive: true });
+      writeFileSync(
+        join(pkgDir, 'package.json'),
+        JSON.stringify({
+          name: '@acme/generator-widget',
+          version: '0.0.0-fixture',
+          type: 'module',
+          exports: {
+            './manifest': './manifest.js',
+            './generators/*': './generators/*/index.js',
+          },
+        }),
+      );
+      writeFileSync(
+        join(pkgDir, 'manifest.js'),
+        "export const GENERATORS = ['app'];\n",
+      );
+      writeFileSync(
+        join(pkgDir, 'generators', 'app', 'index.js'),
+        `import { CoreGenerator } from ${JSON.stringify(import.meta.resolve('@sektek/generator'))};
+
+export default class WidgetGenerator extends CoreGenerator {
+  static prompts() {
+    return [
+      {
+        name: 'seen',
+        type: 'text',
+        label: 'seen',
+        provider: context => context.generator,
+        includePrompt: () => true,
+        capabilities: [],
+      },
+    ];
+  }
+
+  taskWriting() {
+    this.fs.write(
+      this.destinationPath('seen.txt'),
+      String(this.options.seen),
+    );
+  }
+}
+`,
+      );
+      process.chdir(fixtureRoot);
+    });
+
+    afterEach(function () {
+      process.chdir(originalCwd);
+      rmSync(fixtureRoot, { recursive: true, force: true });
+      rmSync(destinationRoot, { recursive: true, force: true });
+    });
+
+    it('records the requested namespace for prompt providers', async function () {
+      await main([
+        'node',
+        'gen',
+        '@acme/widget:app',
+        '--no-interactive',
+        '--dest',
+        destinationRoot,
+      ]);
+
+      expect(readFileSync(join(destinationRoot, 'seen.txt'), 'utf8')).to.equal(
+        '@acme/widget:app',
+      );
     });
   });
 
