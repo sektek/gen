@@ -9,6 +9,8 @@ export const BASE_NAMESPACES = [
   '@sektek/base:readme',
   '@sektek/base:devcontainer',
   '@sektek/base:workspace',
+  '@sektek/base:skills',
+  '@sektek/base:skill-gen',
 ];
 
 export const JS_NAMESPACES = [
