@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.25.0](https://github.com/sektek/gen/compare/v0.24.0...v0.25.0) (2026-11-21)
+
+### Features
+
+* **gen:** populate PromptContext.generator with the requested namespace ([#71](https://github.com/sektek/gen/issues/71)) ([b97ede3](https://github.com/sektek/gen/commit/b97ede3afac2428232b86f03470a8b44741cce2d))
+
+### Bug Fixes
+
+* **gen:** bump @sektek/generator to the release with PromptContext.generator ([#70](https://github.com/sektek/gen/issues/70)) ([168dace](https://github.com/sektek/gen/commit/168dace2f010433067344c7698afe006291ef400))
+
 ## [0.24.0](https://github.com/sektek/gen/compare/v0.23.5...v0.24.0) (2026-11-08)
 
 ### Features
