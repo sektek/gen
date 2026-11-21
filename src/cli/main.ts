@@ -111,6 +111,7 @@ export async function main(argv: string[]): Promise<void> {
   const promptContext = {
     configDefaults,
     workspace: newProject?.workspace,
+    generator: namespace,
   };
   const context: PromptContext = {
     ...promptContext,

@@ -52,7 +52,7 @@ export type NextStep = {
  *
  * @param schema - The full option schema for a namespace.
  * @param answers - The wizard's answers so far.
- * @param base - The `configDefaults`/`workspace` half of the `PromptContext`.
+ * @param base - The `configDefaults`/`workspace`/`generator` half of the `PromptContext`.
  * @param seed - Option values supplied up front, passed as `flagsGiven`.
  * @returns The next spec (its `default` the live provider value), or
  *   `undefined` when none remain, plus the answers including skipped defaults.
@@ -60,7 +60,7 @@ export type NextStep = {
 export async function nextStep(
   schema: OptionSpec[],
   answers: Record<string, unknown>,
-  base: Pick<PromptContext, 'configDefaults' | 'workspace'>,
+  base: Pick<PromptContext, 'configDefaults' | 'workspace' | 'generator'>,
   seed: Record<string, unknown>,
 ): Promise<NextStep> {
   let current = answers;
