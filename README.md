@@ -35,6 +35,7 @@ want to generate into:
 
 ```sh
 /path/to/gen/scripts/gen-docker.sh list
+/path/to/gen/scripts/gen-docker.sh --version
 /path/to/gen/scripts/gen-docker.sh js:app --no-interactive --language typescript --dest ./my-project
 ```
 
@@ -63,6 +64,18 @@ the files are lost when the container exits.
 gen <generator> [options]   # e.g. gen js:app, gen base:workspace, gen @acme/widget:app
 gen list                    # see every available namespace from the installed default packages
 gen list <scope>/<name>     # e.g. gen list @acme/widget — list one specific package's namespaces
+gen --version               # print gen's version and each installed @sektek generator package's (also -V)
+```
+
+`gen --version` prints gen's own version, then one `<package> <version>` line per installed `@sektek`
+generator package, using the copy `gen` would actually run (a local install wins over a global one).
+It ignores any further arguments. A default package that isn't installed is listed as "not
+installed". `gen <generator> --version` isn't supported.
+
+```text
+gen 0.25.0
+@sektek/generator-base 0.20.1
+@sektek/generator-js 0.17.6
 ```
 
 `<generator>` is `[@scope/]name[:subgen]`, generalized to any installed `@<scope>/generator-<name>`
